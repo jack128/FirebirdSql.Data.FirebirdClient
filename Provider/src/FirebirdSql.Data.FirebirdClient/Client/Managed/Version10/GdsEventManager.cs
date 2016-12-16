@@ -78,6 +78,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 					}
 				}
 			}
+#warning What do to here with other exceptions?
 			catch (IOException ex) when (IsEventsReturnSocketError((ex.InnerException as SocketException)?.SocketErrorCode))
 			{
 				return;
