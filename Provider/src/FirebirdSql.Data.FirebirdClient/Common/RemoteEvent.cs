@@ -39,7 +39,7 @@ namespace FirebirdSql.Data.Common
 		private IDatabase _db;
 		private bool _initialCounts;
 		private int[] _previousCounts;
-		private int[] _actualCounts;
+		private int[] _currentCounts;
 
 		#endregion
 
@@ -58,9 +58,9 @@ namespace FirebirdSql.Data.Common
 			get { return _previousCounts; }
 		}
 
-		public int[] ActualCounts
+		public int[] CurrentCounts
 		{
-			get { return _actualCounts; }
+			get { return _currentCounts; }
 		}
 
 		#endregion
@@ -94,7 +94,7 @@ namespace FirebirdSql.Data.Common
 		public void ResetCounts()
 		{
 			_initialCounts = false;
-			_actualCounts = null;
+			_currentCounts = null;
 			_previousCounts = null;
 		}
 
@@ -106,10 +106,10 @@ namespace FirebirdSql.Data.Common
 			{
 				if (_initialCounts)
 				{
-					_previousCounts = _actualCounts;
+					_previousCounts = _currentCounts;
 				}
 
-				_actualCounts = new int[_events.Count];
+				_currentCounts = new int[_events.Count];
 
 				while (pos < buffer.Length)
 				{
@@ -121,7 +121,7 @@ namespace FirebirdSql.Data.Common
 					int index = _events.IndexOf(eventName);
 					if (index != -1)
 					{
-						_actualCounts[index] = BitConverter.ToInt32(buffer, pos) - 1;
+						_currentCounts[index] = BitConverter.ToInt32(buffer, pos) - 1;
 					}
 
 					pos += 4;
@@ -145,9 +145,9 @@ namespace FirebirdSql.Data.Common
 			epb.Append(IscCodes.EPB_version1);
 			for (int i = 0; i < _events.Count; i++)
 			{
-				if (_actualCounts != null)
+				if (_currentCounts != null)
 				{
-					epb.Append(_events[i], _actualCounts[i] + 1);
+					epb.Append(_events[i], _currentCounts[i] + 1);
 				}
 				else
 				{

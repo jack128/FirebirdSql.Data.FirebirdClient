@@ -156,10 +156,10 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		private void OnRemoteEventCounts()
 		{
-			int[] actualCounts = (int[])_revent.ActualCounts.Clone();
+			int[] actualCounts = (int[])_revent.CurrentCounts.Clone();
 			if (_revent.PreviousCounts != null)
 			{
-				for (int i = 0; i < _revent.ActualCounts.Length; i++)
+				for (int i = 0; i < _revent.CurrentCounts.Length; i++)
 				{
 					actualCounts[i] -= _revent.PreviousCounts[i];
 				}
