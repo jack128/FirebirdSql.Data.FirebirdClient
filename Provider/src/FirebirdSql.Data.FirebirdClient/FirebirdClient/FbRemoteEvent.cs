@@ -79,7 +79,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 			_connection = connection;
 			_revent = connection.InnerConnection.Database.CreateEvent();
-			_revent.EventCountsCallback = new RemoteEventCountsCallback(OnRemoteEventCounts);
+			_revent.EventCountsCallback = OnRemoteEventCounts;
 			_synchronizationContext = SynchronizationContext.Current ?? new SynchronizationContext();
 
 			if (events != null)
@@ -154,27 +154,16 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		#region Callbacks Handlers
 
-		private void OnRemoteEventCounts()
+		private void OnRemoteEventCounts(int[] counts)
 		{
-			int[] actualCounts = (int[])_revent.CurrentCounts.Clone();
-			if (_revent.PreviousCounts != null)
+			for (int i = 0; i < counts.Length; i++)
 			{
-				for (int i = 0; i < _revent.CurrentCounts.Length; i++)
-				{
-					actualCounts[i] -= _revent.PreviousCounts[i];
-				}
-			}
-
-			for (int i = 0; i < actualCounts.Length; i++)
-			{
-				FbRemoteEventEventArgs args = new FbRemoteEventEventArgs(_revent.Events[i], actualCounts[i]);
+				FbRemoteEventEventArgs args = new FbRemoteEventEventArgs(_revent.Events[i], counts[i]);
 				_synchronizationContext.Send(_ =>
 				{
 					RemoteEventCounts?.Invoke(this, args);
 				}, null);
 			}
-
-			QueueEvents();
 		}
 
 		#endregion

@@ -20,5 +20,5 @@ using System;
 
 namespace FirebirdSql.Data.Common
 {
-	internal delegate void RemoteEventCountsCallback();
+	internal delegate void RemoteEventCountsCallback(int[] counts);
 }

@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FirebirdSql.Data.Common
 {
@@ -51,16 +52,6 @@ namespace FirebirdSql.Data.Common
 		public List<string> Events
 		{
 			get { return _events; }
-		}
-
-		public int[] PreviousCounts
-		{
-			get { return _previousCounts; }
-		}
-
-		public int[] CurrentCounts
-		{
-			get { return _currentCounts; }
 		}
 
 		#endregion
@@ -102,40 +93,39 @@ namespace FirebirdSql.Data.Common
 		{
 			int pos = 1;
 
-			if (buffer != null)
+			if (_initialCounts)
 			{
-				if (_initialCounts)
+				_previousCounts = _currentCounts;
+			}
+
+			_currentCounts = new int[_events.Count];
+
+			while (pos < buffer.Length)
+			{
+				int length = buffer[pos++];
+				string eventName = _charset.GetString(buffer, pos, length);
+
+				pos += length;
+
+				int index = _events.IndexOf(eventName);
+				if (index != -1)
 				{
-					_previousCounts = _currentCounts;
+					_currentCounts[index] = BitConverter.ToInt32(buffer, pos) - 1;
 				}
 
-				_currentCounts = new int[_events.Count];
+				pos += 4;
+			}
 
-				while (pos < buffer.Length)
-				{
-					int length = buffer[pos++];
-					string eventName = _charset.GetString(buffer, pos, length);
-
-					pos += length;
-
-					int index = _events.IndexOf(eventName);
-					if (index != -1)
-					{
-						_currentCounts[index] = BitConverter.ToInt32(buffer, pos) - 1;
-					}
-
-					pos += 4;
-				}
-
-				if (!_initialCounts)
-				{
-					QueueEvents();
-					_initialCounts = true;
-				}
-				else
-				{
-					EventCountsCallback?.Invoke();
-				}
+			if (!_initialCounts)
+			{
+				QueueEvents();
+				_initialCounts = true;
+			}
+			else
+			{
+				var counts = _currentCounts.Select((e, i) => e - _previousCounts[i]).ToArray();
+				EventCountsCallback?.Invoke(counts);
+				QueueEvents();
 			}
 		}
 
