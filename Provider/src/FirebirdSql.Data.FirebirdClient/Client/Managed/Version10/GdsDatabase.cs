@@ -409,10 +409,12 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		#endregion
 
 		#region Connection Methods
+
 		public void CloseConnection()
 		{
 			_connection.Disconnect();
 		}
+
 		#endregion
 
 		#region Remote Events Methods
