@@ -26,7 +26,7 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Threading;
-
+using System.Threading.Tasks;
 using FirebirdSql.Data.Common;
 
 namespace FirebirdSql.Data.Client.Managed.Version10
@@ -61,7 +61,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		protected string _serverVersion;
 		private short _packetSize;
 		private short _dialect;
-		private int _eventsId;
 		private bool _disposed;
 		private XdrStream _xdrStream;
 
@@ -153,7 +152,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				_eventManager = null;
 				_serverVersion = null;
 				_dialect = 0;
-				_eventsId = 0;
 				_handle = 0;
 				_packetSize = 0;
 				_warningMessage = null;
@@ -446,8 +444,8 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 					_eventManager = new GdsEventManager(auxHandle, ipAddress, portNumber);
 				}
 
-				events.LocalId = Interlocked.Increment(ref _eventsId);
-				_eventManager.QueueEvents(events);
+				events.LocalId++;
+				_eventManager.WaitForEventsAsync(events);
 
 				EventParameterBuffer epb = events.ToEpb();
 
@@ -482,7 +480,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 				ReadResponse();
 
-				_eventManager.CancelEvents(events);
+				_eventManager.RemoveEvents(events);
 			}
 			catch (IOException ex)
 			{
@@ -587,6 +585,10 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		public virtual int NextOperation()
 		{
 			return _xdrStream.ReadNextOperation();
+		}
+		public virtual Task<int> NextOperationAsync()
+		{
+			return _xdrStream.ReadNextOperationAsync();
 		}
 
 		public virtual IResponse ReadResponse()

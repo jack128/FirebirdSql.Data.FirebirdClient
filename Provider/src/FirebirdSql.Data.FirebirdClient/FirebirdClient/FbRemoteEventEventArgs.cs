@@ -21,17 +21,12 @@ using System.ComponentModel;
 
 namespace FirebirdSql.Data.FirebirdClient
 {
-	public sealed class FbRemoteEventEventArgs : CancelEventArgs
+	public sealed class FbRemoteEventEventArgs : EventArgs
 	{
 		public string Name { get; }
 		public int Counts { get; }
 
 		public FbRemoteEventEventArgs(string name, int counts)
-			: this(name, counts, false)
-		{ }
-
-		public FbRemoteEventEventArgs(string name, int counts, bool cancel)
-			: base(cancel)
 		{
 			Name = name;
 			Counts = counts;

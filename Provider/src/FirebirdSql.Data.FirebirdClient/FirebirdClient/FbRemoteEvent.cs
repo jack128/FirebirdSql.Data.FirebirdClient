@@ -156,8 +156,6 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		private void OnRemoteEventCounts()
 		{
-			bool canceled = false;
-
 			int[] actualCounts = (int[])_revent.ActualCounts.Clone();
 			if (_revent.PreviousCounts != null)
 			{
@@ -174,22 +172,9 @@ namespace FirebirdSql.Data.FirebirdClient
 				{
 					RemoteEventCounts?.Invoke(this, args);
 				}, null);
-
-				if (args.Cancel)
-				{
-					canceled = true;
-					break;
-				}
 			}
 
-			if (canceled)
-			{
-				CancelEvents();
-			}
-			else
-			{
-				QueueEvents();
-			}
+			QueueEvents();
 		}
 
 		#endregion

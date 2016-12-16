@@ -28,19 +28,11 @@ using FirebirdSql.Data.Common;
 
 namespace FirebirdSql.Data.Client.Managed.Version10
 {
-#warning Reevaluate threading races
 	internal class GdsEventManager
 	{
-		#region Fields
-
 		private ConcurrentDictionary<int, RemoteEvent> _events;
 		private int _handle;
 		private GdsDatabase _database;
-		private Thread _eventsThread;
-
-		#endregion
-
-		#region Constructors
 
 		public GdsEventManager(int handle, string ipAddress, int portNumber)
 		{
@@ -51,60 +43,14 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			_database = new GdsDatabase(connection);
 		}
 
-		#endregion
-
-		#region Methods
-
-		public void QueueEvents(RemoteEvent remoteEvent)
+		public async Task WaitForEventsAsync(RemoteEvent remoteEvent)
 		{
 			_events[remoteEvent.LocalId] = remoteEvent;
-
-#warning Jiri Cincura: I'm pretty sure this is a race condition.
-			if (_eventsThread == null || _eventsThread.ThreadState.HasFlag(ThreadState.Stopped | ThreadState.Unstarted))
-			{
-				_eventsThread = new Thread(ThreadHandler);
-				_eventsThread.IsBackground = true;
-				_eventsThread.Name = "FirebirdClient - Events Thread";
-				_eventsThread.Start();
-			}
-		}
-
-		public void CancelEvents(RemoteEvent remoteEvent)
-		{
-			RemoteEvent dummy;
-			_events.TryRemove(remoteEvent.LocalId, out dummy);
-		}
-
-		public void Close()
-		{
-			if (_database != null)
-			{
-				_database.CloseConnection();
-			}
-
-			if (_eventsThread != null)
-			{
-				// we don't have here clue about disposing vs. finalizer
-				if (!Environment.HasShutdownStarted)
-				{
-					_eventsThread.Join();
-				}
-
-				_eventsThread = null;
-			}
-		}
-
-		#endregion
-
-		#region Private Methods
-
-		private void ThreadHandler(object _)
-		{
 			try
 			{
-				while (_events.Any())
+				while (true)
 				{
-					var operation = _database.NextOperation();
+					var operation = await _database.NextOperationAsync().ConfigureAwait(false);
 
 					switch (operation)
 					{
@@ -115,7 +61,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 						case IscCodes.op_exit:
 						case IscCodes.op_disconnect:
 							Close();
-							return;
+							break;
 
 						case IscCodes.op_event:
 							var dbHandle = _database.XdrStream.ReadInt32();
@@ -138,13 +84,25 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
+		public void RemoveEvents(RemoteEvent remoteEvent)
+		{
+			RemoteEvent dummy;
+			_events.TryRemove(remoteEvent.LocalId, out dummy);
+		}
+
+		public void Close()
+		{
+			if (_database != null)
+			{
+				_database.CloseConnection();
+			}
+		}
+
 		private bool IsEventsReturnSocketError(SocketError? error)
 		{
 			return error == SocketError.Interrupted
 				|| error == SocketError.ConnectionReset
 				|| error == SocketError.ConnectionAborted;
 		}
-
-		#endregion
 	}
 }

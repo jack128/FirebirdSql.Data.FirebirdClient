@@ -36,8 +36,6 @@ namespace FirebirdSql.Data.Common
 
 		private List<string> _events;
 		private IDatabase _db;
-		private int _localId;
-		private int _remoteId;
 		private bool _initialCounts;
 		private int[] _previousCounts;
 		private int[] _actualCounts;
@@ -46,17 +44,8 @@ namespace FirebirdSql.Data.Common
 
 		#region Properties
 
-		public int LocalId
-		{
-			get { return _localId; }
-			set { _localId = value; }
-		}
-
-		public int RemoteId
-		{
-			get { return _remoteId; }
-			set { _remoteId = value; }
-		}
+		public int LocalId { get; set; }
+		public int RemoteId { get; set; }
 
 		public List<string> Events
 		{
@@ -79,8 +68,8 @@ namespace FirebirdSql.Data.Common
 
 		public RemoteEvent(IDatabase db)
 		{
-			_localId = 0;
-			_remoteId = 0;
+			LocalId = 0;
+			RemoteId = 0;
 			_events = new List<string>();
 			_db = db;
 		}
