@@ -96,8 +96,8 @@ namespace FirebirdSql.Data.FirebirdClient
 		{
 			if (events == null)
 				throw new ArgumentNullException(nameof(events));
-			if (events.Length > 15)
-				throw new ArgumentOutOfRangeException(nameof(events), "Maximum number of events is 15.");
+			if (events.Length > ushort.MaxValue)
+				throw new ArgumentOutOfRangeException(nameof(events), $"Maximum number of events is {ushort.MaxValue}.");
 
 			if (events.Length != _revent.Events.Count)
 			{
