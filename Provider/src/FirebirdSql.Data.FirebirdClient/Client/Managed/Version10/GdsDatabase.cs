@@ -435,16 +435,17 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 		public void QueueEvents(RemoteEvent events)
 		{
-			if (_eventManager == null)
-			{
-				string ipAddress;
-				int portNumber;
-				int auxHandle;
-				ConnectionRequest(out auxHandle, out ipAddress, out portNumber);
-				_eventManager = new GdsEventManager(auxHandle, ipAddress, portNumber);
-			}
 			try
 			{
+				if (_eventManager == null)
+				{
+					string ipAddress;
+					int portNumber;
+					int auxHandle;
+					ConnectionRequest(out auxHandle, out ipAddress, out portNumber);
+					_eventManager = new GdsEventManager(auxHandle, ipAddress, portNumber);
+				}
+
 				events.LocalId = Interlocked.Increment(ref _eventsId);
 				_eventManager.QueueEvents(events);
 
