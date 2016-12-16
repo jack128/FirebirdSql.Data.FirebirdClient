@@ -35,6 +35,7 @@ namespace FirebirdSql.Data.Common
 		#region Fields
 
 		private List<string> _events;
+		private Charset _charset;
 		private IDatabase _db;
 		private bool _initialCounts;
 		private int[] _previousCounts;
@@ -71,6 +72,7 @@ namespace FirebirdSql.Data.Common
 			LocalId = 0;
 			RemoteId = 0;
 			_events = new List<string>();
+			_charset = db.Charset;
 			_db = db;
 		}
 
@@ -99,7 +101,6 @@ namespace FirebirdSql.Data.Common
 		public void EventCounts(byte[] buffer)
 		{
 			int pos = 1;
-			Charset charset = _db.Charset;
 
 			if (buffer != null)
 			{
@@ -113,7 +114,7 @@ namespace FirebirdSql.Data.Common
 				while (pos < buffer.Length)
 				{
 					int length = buffer[pos++];
-					string eventName = charset.GetString(buffer, pos, length);
+					string eventName = _charset.GetString(buffer, pos, length);
 
 					pos += length;
 
