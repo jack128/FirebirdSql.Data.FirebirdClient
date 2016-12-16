@@ -27,24 +27,13 @@ namespace FirebirdSql.Data.Common
 {
 	internal class RemoteEvent
 	{
-		#region Callbacks
-
 		public RemoteEventCountsCallback EventCountsCallback { get; set; }
-
-		#endregion
-
-		#region Fields
 
 		private List<string> _events;
 		private Charset _charset;
 		private IDatabase _db;
-		private bool _initialCounts;
 		private int[] _previousCounts;
 		private int[] _currentCounts;
-
-		#endregion
-
-		#region Properties
 
 		public int LocalId { get; set; }
 		public int RemoteId { get; set; }
@@ -54,10 +43,6 @@ namespace FirebirdSql.Data.Common
 			get { return _events; }
 		}
 
-		#endregion
-
-		#region Constructors
-
 		public RemoteEvent(IDatabase db)
 		{
 			LocalId = 0;
@@ -66,10 +51,6 @@ namespace FirebirdSql.Data.Common
 			_charset = db.Charset;
 			_db = db;
 		}
-
-		#endregion
-
-		#region Methods
 
 		public void QueueEvents()
 		{
@@ -84,7 +65,6 @@ namespace FirebirdSql.Data.Common
 
 		public void ResetCounts()
 		{
-			_initialCounts = false;
 			_currentCounts = null;
 			_previousCounts = null;
 		}
@@ -93,11 +73,7 @@ namespace FirebirdSql.Data.Common
 		{
 			int pos = 1;
 
-			if (_initialCounts)
-			{
-				_previousCounts = _currentCounts;
-			}
-
+			_previousCounts = _currentCounts;
 			_currentCounts = new int[_events.Count];
 
 			while (pos < buffer.Length)
@@ -116,37 +92,21 @@ namespace FirebirdSql.Data.Common
 				pos += 4;
 			}
 
-			if (!_initialCounts)
-			{
-				QueueEvents();
-				_initialCounts = true;
-			}
-			else
-			{
-				var counts = _currentCounts.Select((e, i) => e - _previousCounts[i]).ToArray();
-				EventCountsCallback?.Invoke(counts);
-				QueueEvents();
-			}
+			var counts = _currentCounts.Select((e, i) => e - _previousCounts[i]).ToArray();
+			EventCountsCallback?.Invoke(counts);
+			QueueEvents();
 		}
 
 		public EventParameterBuffer ToEpb()
 		{
+			_currentCounts = _currentCounts ?? new int[_events.Count];
 			EventParameterBuffer epb = new EventParameterBuffer();
 			epb.Append(IscCodes.EPB_version1);
 			for (int i = 0; i < _events.Count; i++)
 			{
-				if (_currentCounts != null)
-				{
-					epb.Append(_events[i], _currentCounts[i] + 1);
-				}
-				else
-				{
-					epb.Append(_events[i], 0);
-				}
+				epb.Append(_events[i], _currentCounts[i] + 1);
 			}
 			return epb;
 		}
-
-		#endregion
 	}
 }
