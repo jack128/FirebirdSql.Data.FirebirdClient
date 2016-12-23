@@ -73,6 +73,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			_connection = connection;
 			_revent = connection.InnerConnection.Database.CreateEvent();
 			_revent.EventCountsCallback = OnRemoteEventCounts;
+			_revent.EventErrorCallback = OnRemoteEventError;
 			_synchronizationContext = SynchronizationContext.Current ?? new SynchronizationContext();
 		}
 
@@ -120,6 +121,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		private void OnRemoteEventCounts(int[] counts)
 		{
+#warning Or push the logic lower?
 			for (int i = 0; i < counts.Length; i++)
 			{
 				if (counts[i] != 0)
@@ -131,6 +133,11 @@ namespace FirebirdSql.Data.FirebirdClient
 					}, null);
 				}
 			}
+		}
+
+		private void OnRemoteEventError(Exception error)
+		{
+#warning Implement
 		}
 
 		#endregion

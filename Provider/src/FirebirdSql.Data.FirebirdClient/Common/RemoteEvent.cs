@@ -28,6 +28,7 @@ namespace FirebirdSql.Data.Common
 	internal class RemoteEvent
 	{
 		public RemoteEventCountsCallback EventCountsCallback { get; set; }
+		public RemoteEventErrorCallback EventErrorCallback { get; set; }
 
 		private List<string> _events;
 		private Charset _charset;

@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="4.0">
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -89,6 +89,7 @@
     <Compile Include="Common\TraceHelper.cs" />
     <Compile Include="Common\TransactionBase.cs" />
     <Compile Include="Common\Volatile2.cs" />
+    <Compile Include="Common\RemoteEventErrorCallback.cs" />
     <Compile Include="Entity\DmlSqlGenerator.cs" />
     <Compile Include="Entity\ExpressionTranslator.cs" />
     <Compile Include="Entity\FirstClause.cs" />

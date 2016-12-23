@@ -446,7 +446,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				}
 
 				events.LocalId++;
-				_eventManager.WaitForEventsAsync(events);
+				var dummy = _eventManager.WaitForEventsAsync(events);
 
 				EventParameterBuffer epb = events.ToEpb();
 
