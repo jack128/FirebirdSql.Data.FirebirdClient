@@ -158,11 +158,14 @@ namespace FirebirdSql.Data.FirebirdClient
 		{
 			for (int i = 0; i < counts.Length; i++)
 			{
-				FbRemoteEventEventArgs args = new FbRemoteEventEventArgs(_revent.Events[i], counts[i]);
-				_synchronizationContext.Post(_ =>
+				if (counts[i] != 0)
 				{
-					RemoteEventCounts?.Invoke(this, args);
-				}, null);
+					FbRemoteEventEventArgs args = new FbRemoteEventEventArgs(_revent.Events[i], counts[i]);
+					_synchronizationContext.Post(_ =>
+					{
+						RemoteEventCounts?.Invoke(this, args);
+					}, null);
+				}
 			}
 		}
 
