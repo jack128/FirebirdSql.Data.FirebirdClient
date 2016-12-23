@@ -68,10 +68,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		public FbRemoteEvent(FbConnection connection)
 		{
-			if (connection == null || connection.State != System.Data.ConnectionState.Open)
-			{
-				throw new InvalidOperationException("Connection must be valid and open");
-			}
+			FbConnection.EnsureOpen(connection);
 
 			_connection = connection;
 			_revent = connection.InnerConnection.Database.CreateEvent();
