@@ -93,10 +93,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 		public void Close()
 		{
-			if (_database != null)
-			{
-				_database.CloseConnection();
-			}
+			_database.CloseConnection();
 		}
 
 		private bool IsEventsReturnSocketError(SocketError? error)
