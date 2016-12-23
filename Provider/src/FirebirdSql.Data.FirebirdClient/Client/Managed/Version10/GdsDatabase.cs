@@ -256,7 +256,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				{
 					throw IscException.ForErrorCode(IscCodes.isc_network_error, ex2);
 				}
-
 				throw IscException.ForErrorCode(IscCodes.isc_network_error, ex);
 			}
 		}
