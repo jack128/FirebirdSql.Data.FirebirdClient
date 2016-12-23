@@ -45,7 +45,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 		public async Task WaitForEventsAsync(RemoteEvent remoteEvent)
 		{
-			_events[remoteEvent.LocalId] = remoteEvent;
+			_events.AddOrUpdate(remoteEvent.LocalId, remoteEvent, (_, __) => remoteEvent);
 			try
 			{
 				while (true)
