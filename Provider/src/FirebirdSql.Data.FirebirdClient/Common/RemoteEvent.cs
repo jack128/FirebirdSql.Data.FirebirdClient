@@ -60,24 +60,25 @@ namespace FirebirdSql.Data.Common
 		public void CancelEvents()
 		{
 			_db.CancelEvents(this);
-			ResetCounts();
+			_currentCounts = null;
+			_previousCounts = null;
 		}
 
 		internal void EventCounts(byte[] buffer)
 		{
-			int pos = 1;
+			var pos = 1;
 
 			_previousCounts = _currentCounts;
 			_currentCounts = new int[_events.Count];
 
 			while (pos < buffer.Length)
 			{
-				int length = buffer[pos++];
-				string eventName = _charset.GetString(buffer, pos, length);
+				var length = buffer[pos++];
+				var eventName = _charset.GetString(buffer, pos, length);
 
 				pos += length;
 
-				int index = _events.IndexOf(eventName);
+				var index = _events.IndexOf(eventName);
 				if (index != -1)
 				{
 					_currentCounts[index] = BitConverter.ToInt32(buffer, pos) - 1;
@@ -96,17 +97,11 @@ namespace FirebirdSql.Data.Common
 			_currentCounts = _currentCounts ?? new int[_events.Count];
 			EventParameterBuffer epb = new EventParameterBuffer();
 			epb.Append(IscCodes.EPB_version1);
-			for (int i = 0; i < _events.Count; i++)
+			for (var i = 0; i < _events.Count; i++)
 			{
 				epb.Append(_events[i], _currentCounts[i] + 1);
 			}
 			return epb;
-		}
-
-		void ResetCounts()
-		{
-			_currentCounts = null;
-			_previousCounts = null;
 		}
 	}
 }
