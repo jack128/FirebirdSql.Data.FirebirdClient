@@ -63,13 +63,7 @@ namespace FirebirdSql.Data.Common
 			ResetCounts();
 		}
 
-		public void ResetCounts()
-		{
-			_currentCounts = null;
-			_previousCounts = null;
-		}
-
-		public void EventCounts(byte[] buffer)
+		internal void EventCounts(byte[] buffer)
 		{
 			int pos = 1;
 
@@ -97,7 +91,7 @@ namespace FirebirdSql.Data.Common
 			QueueEvents();
 		}
 
-		public EventParameterBuffer ToEpb()
+		internal EventParameterBuffer ToEpb()
 		{
 			_currentCounts = _currentCounts ?? new int[_events.Count];
 			EventParameterBuffer epb = new EventParameterBuffer();
@@ -107,6 +101,12 @@ namespace FirebirdSql.Data.Common
 				epb.Append(_events[i], _currentCounts[i] + 1);
 			}
 			return epb;
+		}
+
+		void ResetCounts()
+		{
+			_currentCounts = null;
+			_previousCounts = null;
 		}
 	}
 }
