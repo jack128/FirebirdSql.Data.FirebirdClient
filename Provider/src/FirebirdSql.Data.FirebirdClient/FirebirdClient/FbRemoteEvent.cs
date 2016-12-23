@@ -67,10 +67,6 @@ namespace FirebirdSql.Data.FirebirdClient
 		#region Constructors
 
 		public FbRemoteEvent(FbConnection connection)
-			: this(connection, null)
-		{ }
-
-		public FbRemoteEvent(FbConnection connection, params string[] events)
 		{
 			if (connection == null || connection.State != System.Data.ConnectionState.Open)
 			{
@@ -81,53 +77,24 @@ namespace FirebirdSql.Data.FirebirdClient
 			_revent = connection.InnerConnection.Database.CreateEvent();
 			_revent.EventCountsCallback = OnRemoteEventCounts;
 			_synchronizationContext = SynchronizationContext.Current ?? new SynchronizationContext();
-
-			if (events != null)
-			{
-				AddEvents(events);
-			}
 		}
 
 		#endregion
 
 		#region Methods
 
-		public void AddEvents(params string[] events)
+		public void QueueEvents(params string[] events)
 		{
+#warning What about requeue?
 			if (events == null)
 				throw new ArgumentNullException(nameof(events));
+			if (events.Length == 0)
+				throw new ArgumentOutOfRangeException(nameof(events), "Need to provide at least one event.");
 			if (events.Length > ushort.MaxValue)
 				throw new ArgumentOutOfRangeException(nameof(events), $"Maximum number of events is {ushort.MaxValue}.");
 
-			if (events.Length != _revent.Events.Count)
-			{
-				_revent.ResetCounts();
-			}
-			else
-			{
-				string[] actualEvents = new string[_revent.Events.Count];
-				_revent.Events.CopyTo(actualEvents, 0);
+			_revent.Events.AddRange(events);
 
-				for (int i = 0; i < actualEvents.Length; i++)
-				{
-					if (events[i] != actualEvents[i])
-					{
-						_revent.ResetCounts();
-						break;
-					}
-				}
-			}
-
-			_revent.Events.Clear();
-
-			for (int i = 0; i < events.Length; i++)
-			{
-				_revent.Events.Add(events[i]);
-			}
-		}
-
-		public void QueueEvents()
-		{
 			try
 			{
 				_revent.QueueEvents();
