@@ -46,33 +46,30 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		{
 			try
 			{
-				while (true)
+				var operation = await _database.NextOperationAsync().ConfigureAwait(false);
+
+				switch (operation)
 				{
-					var operation = await _database.NextOperationAsync().ConfigureAwait(false);
+					case IscCodes.op_response:
+						_database.ReadResponse();
+						break;
 
-					switch (operation)
-					{
-						case IscCodes.op_response:
-							_database.ReadResponse();
-							continue;
+					case IscCodes.op_exit:
+					case IscCodes.op_disconnect:
+						Close();
+						break;
 
-						case IscCodes.op_exit:
-						case IscCodes.op_disconnect:
-							Close();
-							break;
+					case IscCodes.op_event:
+						var dbHandle = _database.XdrStream.ReadInt32();
+						var buffer = _database.XdrStream.ReadBuffer();
+						var ast = _database.XdrStream.ReadBytes(8);
+						var eventId = _database.XdrStream.ReadInt32();
 
-						case IscCodes.op_event:
-							var dbHandle = _database.XdrStream.ReadInt32();
-							var buffer = _database.XdrStream.ReadBuffer();
-							var ast = _database.XdrStream.ReadBytes(8);
-							var eventId = _database.XdrStream.ReadInt32();
+						Debug.Assert(remoteEvent.LocalId == eventId);
 
-							Debug.Assert(remoteEvent.LocalId == eventId);
+						remoteEvent.EventCounts(buffer);
 
-							remoteEvent.EventCounts(buffer);
-
-							continue;
-					}
+						break;
 				}
 			}
 			catch (IOException ex) when (IsEventsReturnSocketError((ex.InnerException as SocketException)?.SocketErrorCode))
