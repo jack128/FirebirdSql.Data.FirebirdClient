@@ -89,7 +89,6 @@
     <Compile Include="Common\TraceHelper.cs" />
     <Compile Include="Common\TransactionBase.cs" />
     <Compile Include="Common\Volatile2.cs" />
-    <Compile Include="Common\RemoteEventErrorCallback.cs" />
     <Compile Include="Entity\DmlSqlGenerator.cs" />
     <Compile Include="Entity\ExpressionTranslator.cs" />
     <Compile Include="Entity\FirstClause.cs" />
@@ -167,7 +166,6 @@
     <Compile Include="Common\IServiceManager.cs" />
     <Compile Include="Common\ParameterBuffer.cs" />
     <Compile Include="Common\RemoteEvent.cs" />
-    <Compile Include="Common\RemoteEventCountsCallback.cs" />
     <Compile Include="Common\ServiceParameterBuffer.cs" />
     <Compile Include="Common\StatementBase.cs" />
     <Compile Include="Common\StatementState.cs" />

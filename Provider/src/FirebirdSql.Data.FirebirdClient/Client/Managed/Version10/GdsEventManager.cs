@@ -81,7 +81,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 			catch (Exception ex)
 			{
-				remoteEvent.EventErrorCallback?.Invoke(ex);
+				remoteEvent.EventError(ex);
 			}
 		}
 

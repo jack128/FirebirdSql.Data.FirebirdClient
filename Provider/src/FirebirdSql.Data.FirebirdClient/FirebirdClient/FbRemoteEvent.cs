@@ -119,20 +119,13 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		#region Callbacks Handlers
 
-		private void OnRemoteEventCounts(int[] counts)
+		private void OnRemoteEventCounts(string name, int count)
 		{
-#warning Or push the logic lower?
-			for (int i = 0; i < counts.Length; i++)
+			var args = new FbRemoteEventEventArgs(name, count);
+			_synchronizationContext.Post(_ =>
 			{
-				if (counts[i] != 0)
-				{
-					FbRemoteEventEventArgs args = new FbRemoteEventEventArgs(_revent.Events[i], counts[i]);
-					_synchronizationContext.Post(_ =>
-					{
-						RemoteEventCounts?.Invoke(this, args);
-					}, null);
-				}
-			}
+				RemoteEventCounts?.Invoke(this, args);
+			}, null);
 		}
 
 		private void OnRemoteEventError(Exception error)

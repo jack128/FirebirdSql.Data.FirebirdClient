@@ -21,15 +21,13 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace FirebirdSql.Data.Common
 {
 	internal class RemoteEvent
 	{
-		public RemoteEventCountsCallback EventCountsCallback { get; set; }
-		public RemoteEventErrorCallback EventErrorCallback { get; set; }
-
 		private List<string> _events;
 		private Charset _charset;
 		private IDatabase _db;
@@ -38,6 +36,8 @@ namespace FirebirdSql.Data.Common
 
 		public int LocalId { get; set; }
 		public int RemoteId { get; set; }
+		public Action<string, int> EventCountsCallback { get; set; }
+		public Action<Exception> EventErrorCallback { get; set; }
 
 		public List<string> Events
 		{
@@ -80,17 +80,25 @@ namespace FirebirdSql.Data.Common
 				pos += length;
 
 				var index = _events.IndexOf(eventName);
-				if (index != -1)
-				{
-					_currentCounts[index] = BitConverter.ToInt32(buffer, pos) - 1;
-				}
+				_currentCounts[index] = BitConverter.ToInt32(buffer, pos) - 1;
 
 				pos += 4;
 			}
 
-			var counts = _currentCounts.Select((e, i) => e - _previousCounts[i]).ToArray();
-			EventCountsCallback?.Invoke(counts);
+			for (var i = 0; i < _events.Count; i++)
+			{
+				var count = _currentCounts[i] - _previousCounts[i];
+				if (count == 0)
+					continue;
+				EventCountsCallback(_events[i], count);
+			}
+
 			QueueEvents();
+		}
+
+		internal void EventError(Exception exception)
+		{
+			EventErrorCallback(exception);
 		}
 
 		internal EventParameterBuffer ToEpb()
