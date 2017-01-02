@@ -18,6 +18,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Sockets;
@@ -30,13 +31,11 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 {
 	internal class GdsEventManager
 	{
-		private ConcurrentDictionary<int, RemoteEvent> _events;
 		private int _handle;
 		private GdsDatabase _database;
 
 		public GdsEventManager(int handle, string ipAddress, int portNumber)
 		{
-			_events = new ConcurrentDictionary<int, RemoteEvent>();
 			_handle = handle;
 			GdsConnection connection = new GdsConnection(ipAddress, portNumber);
 			connection.Connect();
@@ -45,8 +44,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 		public async Task WaitForEventsAsync(RemoteEvent remoteEvent)
 		{
-#warning Dictionary not needed? Just pass value. No GdsEventManager sharing.
-			_events.AddOrUpdate(remoteEvent.LocalId, remoteEvent, (_, __) => remoteEvent);
 			try
 			{
 				while (true)
@@ -70,11 +67,10 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 							var ast = _database.XdrStream.ReadBytes(8);
 							var eventId = _database.XdrStream.ReadInt32();
 
-							RemoteEvent currentEvent;
-							if (_events.TryRemove(eventId, out currentEvent))
-							{
-								currentEvent.EventCounts(buffer);
-							}
+							Debug.Assert(remoteEvent.LocalId == eventId);
+
+							remoteEvent.EventCounts(buffer);
+
 							continue;
 					}
 				}
@@ -87,12 +83,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			{
 				remoteEvent.EventErrorCallback?.Invoke(ex);
 			}
-		}
-
-		public void RemoveEvents(RemoteEvent remoteEvent)
-		{
-			RemoteEvent dummy;
-			_events.TryRemove(remoteEvent.LocalId, out dummy);
 		}
 
 		public void Close()

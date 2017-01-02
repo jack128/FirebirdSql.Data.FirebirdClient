@@ -480,8 +480,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				XdrStream.Flush();
 
 				ReadResponse();
-
-				_eventManager.RemoveEvents(events);
 			}
 			catch (IOException ex)
 			{
