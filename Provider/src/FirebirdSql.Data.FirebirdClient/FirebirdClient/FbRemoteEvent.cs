@@ -26,51 +26,33 @@ using FirebirdSql.Data.Common;
 
 namespace FirebirdSql.Data.FirebirdClient
 {
-	public sealed class FbRemoteEvent
+	public sealed class FbRemoteEvent : IDisposable
 	{
-		#region Events
+
+		private FbConnectionInternal _connection;
+		private RemoteEvent _revent;
+		private SynchronizationContext _synchronizationContext;
 
 		public event EventHandler<FbRemoteEventCountsEventArgs> RemoteEventCounts;
 		public event EventHandler<FbRemoteEventErrorEventArgs> RemoteEventError;
 
-		#endregion
-
-		#region Fields
-
-		private RemoteEvent _revent;
-		private SynchronizationContext _synchronizationContext;
-
-		#endregion
-
-		#region Indexers
-
 		public string this[int index] => _revent.Events[index];
-
-		#endregion
-
-		#region Properties
-
-		public FbConnection Connection { get; }
 		public int RemoteEventId => _revent?.RemoteId ?? -1;
 
-		#endregion
-
-		#region Constructors
-
-		public FbRemoteEvent(FbConnection connection)
+		public FbRemoteEvent(string connectionString)
 		{
-			FbConnection.EnsureOpen(connection);
-
-			Connection = connection;
-			_revent = new RemoteEvent(connection.InnerConnection.Database);
+			_connection = new FbConnectionInternal(new FbConnectionString(connectionString));
+			_connection.Connect();
+			_revent = new RemoteEvent(_connection.Database);
 			_revent.EventCountsCallback = OnRemoteEventCounts;
 			_revent.EventErrorCallback = OnRemoteEventError;
 			_synchronizationContext = SynchronizationContext.Current ?? new SynchronizationContext();
 		}
 
-		#endregion
-
-		#region Methods
+		public void Dispose()
+		{
+			_connection.Dispose();
+		}
 
 		public void QueueEvents(params string[] events)
 		{
@@ -107,10 +89,6 @@ namespace FirebirdSql.Data.FirebirdClient
 			_revent.Events.Clear();
 		}
 
-		#endregion
-
-		#region Callbacks Handlers
-
 		private void OnRemoteEventCounts(string name, int count)
 		{
 			var args = new FbRemoteEventCountsEventArgs(name, count);
@@ -128,7 +106,5 @@ namespace FirebirdSql.Data.FirebirdClient
 				RemoteEventError?.Invoke(this, args);
 			}, null);
 		}
-
-		#endregion
 	}
 }
