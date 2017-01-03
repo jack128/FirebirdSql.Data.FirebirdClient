@@ -90,8 +90,8 @@ namespace FirebirdSql.Data.FirebirdClient
 				throw new ArgumentNullException(nameof(events));
 			if (events.Length == 0)
 				throw new ArgumentOutOfRangeException(nameof(events), "Need to provide at least one event.");
-			if (events.Length > ushort.MaxValue)
-				throw new ArgumentOutOfRangeException(nameof(events), $"Maximum number of events is {ushort.MaxValue}.");
+			if (events.Length > RemoteEvent.MaxEvents)
+				throw new ArgumentOutOfRangeException(nameof(events), $"Maximum number of events is {RemoteEvent.MaxEvents}.");
 
 			_revent.Events.AddRange(events);
 

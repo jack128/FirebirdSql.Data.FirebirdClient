@@ -28,6 +28,8 @@ namespace FirebirdSql.Data.Common
 {
 	internal class RemoteEvent
 	{
+		internal const int MaxEvents = ushort.MaxValue;
+
 		private List<string> _events;
 		private Charset _charset;
 		private IDatabase _db;
