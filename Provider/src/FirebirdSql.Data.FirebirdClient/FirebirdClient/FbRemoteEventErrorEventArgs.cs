@@ -12,7 +12,7 @@
  *     express or implied.  See the License for the specific
  *     language governing rights and limitations under the License.
  *
- *  Copyright (c) 2002, 2007 Carlos Guzman Alvarez
+ *  Copyright (c) 2017 Jiri Cincura (jiri@cincura.net)
  *  All Rights Reserved.
  */
 
@@ -21,15 +21,13 @@ using System.ComponentModel;
 
 namespace FirebirdSql.Data.FirebirdClient
 {
-	public sealed class FbRemoteEventEventArgs : EventArgs
+	public sealed class FbRemoteEventErrorEventArgs : EventArgs
 	{
-		public string Name { get; }
-		public int Counts { get; }
+		public Exception Error { get; }
 
-		public FbRemoteEventEventArgs(string name, int counts)
+		public FbRemoteEventErrorEventArgs(Exception error)
 		{
-			Name = name;
-			Counts = counts;
+			Error = error;
 		}
 	}
 }

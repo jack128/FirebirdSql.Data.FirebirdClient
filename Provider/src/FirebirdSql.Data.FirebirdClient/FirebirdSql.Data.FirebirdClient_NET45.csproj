@@ -109,6 +109,7 @@
     <Compile Include="FirebirdClient\FbDbType.cs" />
     <Compile Include="FirebirdClient\FbProviderManifest.cs" />
     <Compile Include="FirebirdClient\FbProviderServices.cs" />
+    <Compile Include="FirebirdClient\FbRemoteEventErrorEventArgs.cs" />
     <Compile Include="FirebirdClient\FbTransactionOptions.cs" />
     <Compile Include="Isql\FbStatement.cs" />
     <Compile Include="Isql\UnknownStatementEventArgs.cs" />
@@ -203,7 +204,7 @@
     <Compile Include="FirebirdClient\FbParameterCollection.cs" />
     <Compile Include="FirebirdClient\FbServerType.cs" />
     <Compile Include="FirebirdClient\FbRemoteEvent.cs" />
-    <Compile Include="FirebirdClient\FbRemoteEventEventArgs.cs" />
+    <Compile Include="FirebirdClient\FbRemoteEventCountsEventArgs.cs" />
     <Compile Include="FirebirdClient\FbRowUpdatedEventArgs.cs" />
     <Compile Include="FirebirdClient\FbRowUpdatingEventArgs.cs" />
     <Compile Include="FirebirdClient\FbTransaction.cs" />

@@ -30,7 +30,8 @@ namespace FirebirdSql.Data.FirebirdClient
 	{
 		#region Events
 
-		public event EventHandler<FbRemoteEventEventArgs> RemoteEventCounts;
+		public event EventHandler<FbRemoteEventCountsEventArgs> RemoteEventCounts;
+		public event EventHandler<FbRemoteEventErrorEventArgs> RemoteEventError;
 
 		#endregion
 
@@ -113,7 +114,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		private void OnRemoteEventCounts(string name, int count)
 		{
-			var args = new FbRemoteEventEventArgs(name, count);
+			var args = new FbRemoteEventCountsEventArgs(name, count);
 			_synchronizationContext.Post(_ =>
 			{
 				RemoteEventCounts?.Invoke(this, args);
@@ -122,7 +123,11 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		private void OnRemoteEventError(Exception error)
 		{
-#warning Implement
+			var args = new FbRemoteEventErrorEventArgs(error);
+			_synchronizationContext.Post(_ =>
+			{
+				RemoteEventError?.Invoke(this, args);
+			}, null);
 		}
 
 		#endregion

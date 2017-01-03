@@ -98,9 +98,9 @@ namespace FirebirdSql.Data.Common
 			QueueEvents();
 		}
 
-		internal void EventError(Exception exception)
+		internal void EventError(Exception error)
 		{
-			EventErrorCallback(exception);
+			EventErrorCallback(error);
 		}
 
 		internal EventParameterBuffer ToEpb()
