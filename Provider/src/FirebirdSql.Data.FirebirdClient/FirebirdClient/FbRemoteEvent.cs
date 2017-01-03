@@ -84,7 +84,6 @@ namespace FirebirdSql.Data.FirebirdClient
 				throw new ArgumentOutOfRangeException(nameof(events), $"Maximum number of events is {RemoteEvent.MaxEvents}.");
 
 			_revent.Events.AddRange(events);
-
 			try
 			{
 				_revent.QueueEvents();
@@ -100,12 +99,12 @@ namespace FirebirdSql.Data.FirebirdClient
 			try
 			{
 				_revent.CancelEvents();
-				_revent.Events.Clear();
 			}
 			catch (IscException ex)
 			{
 				throw new FbException(ex.Message, ex);
 			}
+			_revent.Events.Clear();
 		}
 
 		#endregion
