@@ -36,7 +36,6 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		#region Fields
 
-		private FbConnection _connection;
 		private RemoteEvent _revent;
 		private SynchronizationContext _synchronizationContext;
 
@@ -44,24 +43,14 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		#region Indexers
 
-		public string this[int index]
-		{
-			get { return _revent.Events[index]; }
-		}
+		public string this[int index] => _revent.Events[index];
 
 		#endregion
 
 		#region Properties
 
-		public FbConnection Connection
-		{
-			get { return _connection; }
-		}
-
-		public int RemoteEventId
-		{
-			get { return _revent?.RemoteId ?? -1; }
-		}
+		public FbConnection Connection { get; }
+		public int RemoteEventId => _revent?.RemoteId ?? -1;
 
 		#endregion
 
@@ -71,8 +60,8 @@ namespace FirebirdSql.Data.FirebirdClient
 		{
 			FbConnection.EnsureOpen(connection);
 
-			_connection = connection;
-			_revent = new RemoteEvent(_connection.InnerConnection.Database);
+			Connection = connection;
+			_revent = new RemoteEvent(connection.InnerConnection.Database);
 			_revent.EventCountsCallback = OnRemoteEventCounts;
 			_revent.EventErrorCallback = OnRemoteEventError;
 			_synchronizationContext = SynchronizationContext.Current ?? new SynchronizationContext();
