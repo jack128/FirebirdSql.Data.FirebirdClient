@@ -427,11 +427,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
-		public RemoteEvent CreateEvent()
-		{
-			return new RemoteEvent(this);
-		}
-
 		public void QueueEvents(RemoteEvent events)
 		{
 			try

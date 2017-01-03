@@ -71,7 +71,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			FbConnection.EnsureOpen(connection);
 
 			_connection = connection;
-			_revent = connection.InnerConnection.Database.CreateEvent();
+			_revent = new RemoteEvent(_connection.InnerConnection.Database);
 			_revent.EventCountsCallback = OnRemoteEventCounts;
 			_revent.EventErrorCallback = OnRemoteEventError;
 			_synchronizationContext = SynchronizationContext.Current ?? new SynchronizationContext();
