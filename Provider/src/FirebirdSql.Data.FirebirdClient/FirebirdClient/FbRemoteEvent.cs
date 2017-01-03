@@ -20,6 +20,7 @@
  */
 
 using System;
+using System.Linq;
 using System.Threading;
 using FirebirdSql.Data.Common;
 
@@ -83,7 +84,8 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		public void QueueEvents(params string[] events)
 		{
-#warning What about requeue?
+			if (_revent.Events.Any())
+				throw new InvalidOperationException("Events are already running.");
 			if (events == null)
 				throw new ArgumentNullException(nameof(events));
 			if (events.Length == 0)
@@ -108,6 +110,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			try
 			{
 				_revent.CancelEvents();
+				_revent.Events.Clear();
 			}
 			catch (IscException ex)
 			{
