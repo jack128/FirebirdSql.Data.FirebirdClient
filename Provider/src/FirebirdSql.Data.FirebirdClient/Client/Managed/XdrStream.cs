@@ -257,7 +257,11 @@ namespace FirebirdSql.Data.Client.Managed
 			_position += data.Length;
 			return data.Length;
 		}
+#if NET40
+		public async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default(CancellationToken))
+#else
 		public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+#endif
 		{
 			CheckDisposed();
 			EnsureReadable();
