@@ -29,8 +29,7 @@
 		"System.Threading.Timer": "4.0.1"
 	},
 	"frameworks": {
-		"netstandard1.6": {
-		}
+		"netstandard1.6": {}
 	},
 	"configurations": {
 		"Debug": {
