@@ -1,5 +1,5 @@
 {
-	"version": "1.0.0-*",
+	"version": "5.7.0.0",
 	"dependencies": {
 		"Microsoft.Extensions.PlatformAbstractions": "1.0.0",
 		"System.Collections.NonGeneric": "4.0.1",
