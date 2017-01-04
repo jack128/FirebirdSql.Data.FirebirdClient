@@ -8,7 +8,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>623d96d1-d6c0-45bf-b077-ab4f6cfb987a</ProjectGuid>
     <RootNamespace>FirebirdSql.Data.FirebirdClient</RootNamespace>
-    <BaseIntermediateOutputPath Condition="'$(BaseIntermediateOutputPath)'=='' ">.\obj</BaseIntermediateOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(BaseIntermediateOutputPath)'=='' ">.\obj\</BaseIntermediateOutputPath>
     <OutputPath Condition="'$(OutputPath)'=='' ">.\bin\</OutputPath>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
   </PropertyGroup>
