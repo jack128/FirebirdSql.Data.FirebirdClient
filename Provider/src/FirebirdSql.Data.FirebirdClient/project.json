@@ -29,19 +29,23 @@
 		"System.Threading.Timer": "4.0.1"
 	},
 	"frameworks": {
-		"netstandard1.6": {}
+		"netstandard1.6": {
+			"buildOptions": {
+				"define": [ "NETCORE10" ]
+			}
+		}
 	},
 	"configurations": {
 		"Debug": {
 			"buildOptions": {
-				"define": [ "DEBUG", "TRACE", "NETCORE10" ],
+				"define": [ "DEBUG", "TRACE" ],
 				"optimize": false,
 				"debugType": "full"
 			}
 		},
 		"Release": {
 			"buildOptions": {
-				"define": [ "TRACE", "NETCORE10" ],
+				"define": [ "TRACE" ],
 				"optimize": true,
 				"debugType": "portable"
 			}
