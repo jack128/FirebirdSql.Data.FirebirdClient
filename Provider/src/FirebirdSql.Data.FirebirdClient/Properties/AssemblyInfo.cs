@@ -13,7 +13,7 @@
  *     language governing rights and limitations under the License.
  *
  *  Copyright (c) 2002, 2007 Carlos Guzman Alvarez
- *  Copyright (c) 2012-2016 Jiri Cincura (jiri@cincura.net)
+ *  Copyright (c) 2012-2017 Jiri Cincura (jiri@cincura.net)
  *  All Rights Reserved.
  */
 
@@ -35,3 +35,4 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyDescription("FirebirdClient - ADO.NET Data Provider")]
 [assembly: AssemblyVersion(FirebirdSql.Data.FirebirdClient.Properties.VersionInfo.Version)]
 [assembly: AssemblyFileVersion(FirebirdSql.Data.FirebirdClient.Properties.VersionInfo.Version)]
+[assembly: AssemblyInformationalVersion(FirebirdSql.Data.FirebirdClient.Properties.VersionInfo.Version)]
