@@ -73,19 +73,7 @@ namespace FirebirdSql.Data.Client.Native
 			{
 				dllName = DefaultDllName;
 			}
-
-			IFbClient fbClient;
-			if (cache.TryGetValue(dllName, out fbClient))
-			{
-				return fbClient;
-			}
-			else
-			{
-				// It's OK if two generate it. Only one will be used.
-				fbClient = GenerateFbClient(dllName);
-				cache.TryAdd(dllName, fbClient);
-				return fbClient;
-			}
+			return cache.GetOrAdd(dllName, GenerateFbClient);
 		}
 
 		/// <summary>
