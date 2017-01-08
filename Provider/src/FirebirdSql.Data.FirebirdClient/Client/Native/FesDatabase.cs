@@ -53,7 +53,6 @@ namespace FirebirdSql.Data.Client.Native
 		private short _dialect;
 		private bool _disposed;
 		private IntPtr[] _statusVector;
-		private object _syncObject;
 
 		private IFbClient _fbClient;
 
@@ -110,11 +109,6 @@ namespace FirebirdSql.Data.Client.Native
 			get { return _fbClient; }
 		}
 
-		public object SyncObject
-		{
-			get { return _syncObject; }
-		}
-
 		#endregion
 
 		#region Constructors
@@ -127,7 +121,6 @@ namespace FirebirdSql.Data.Client.Native
 			_dialect = 3;
 			_packetSize = 8192;
 			_statusVector = new IntPtr[IscCodes.ISC_STATUS_LENGTH];
-			_syncObject = new object();
 		}
 
 		#endregion
