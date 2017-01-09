@@ -50,7 +50,7 @@
 	},
 	"scripts": {
 		"postcompile": [
-			"cmd /c move /Y bin\\%compile:Configuration%\\netstandard1.6 ..\\bin\\%compile:Configuration%"
+			"robocopy bin\\%compile:Configuration%\\netstandard1.6 *.dll *.pdb ..\\bin\\%compile:Configuration%\\netstandard1.6 /MOV"
 		]
 	},
 	"configurations": {
