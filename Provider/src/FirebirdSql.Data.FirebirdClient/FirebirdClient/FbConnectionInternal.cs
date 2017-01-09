@@ -116,8 +116,8 @@ namespace FirebirdSql.Data.FirebirdClient
 		{
 			if (!_disposed)
 			{
-				Disconnect();
 				_disposed = true;
+				Disconnect();
 			}
 		}
 

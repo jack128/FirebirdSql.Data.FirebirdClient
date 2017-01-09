@@ -174,6 +174,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		{
 			if (!_disposed)
 			{
+				_disposed = true;
 				Release();
 				Clear();
 				_rows = null;
@@ -189,7 +190,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				_fetchSize = 0;
 				RecordsAffected = 0;
 				base.Dispose();
-				_disposed = true;
 			}
 		}
 

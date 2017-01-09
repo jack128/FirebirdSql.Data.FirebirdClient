@@ -430,9 +430,9 @@ namespace FirebirdSql.Data.Client.Managed
 		{
 			if (!_disposed)
 			{
+				_disposed = true;
 				CloseClientContext();
 				CloseClientCredentials();
-				_disposed = true;
 			}
 		}
 

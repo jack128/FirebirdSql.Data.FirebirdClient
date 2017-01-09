@@ -131,6 +131,7 @@ namespace FirebirdSql.Data.Client.Native
 		{
 			if (!_disposed)
 			{
+				_disposed = true;
 				Detach();
 				_warningMessage = null;
 				_charset = null;
@@ -140,7 +141,6 @@ namespace FirebirdSql.Data.Client.Native
 				_dialect = 0;
 				_handle.Dispose();
 				_packetSize = 0;
-				_disposed = true;
 			}
 		}
 

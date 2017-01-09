@@ -147,6 +147,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		{
 			if (!_disposed)
 			{
+				_disposed = true;
 				Detach();
 				_connection = null;
 				_charset = null;
@@ -158,7 +159,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				_packetSize = 0;
 				_warningMessage = null;
 				_transactionCount = 0;
-				_disposed = true;
 			}
 		}
 

@@ -98,6 +98,7 @@ namespace FirebirdSql.Data.Client.Native
 		{
 			if (!_disposed)
 			{
+				_disposed = true;
 				if (_state != TransactionState.NoTransaction)
 				{
 					Rollback();
@@ -107,7 +108,6 @@ namespace FirebirdSql.Data.Client.Native
 				_state = TransactionState.NoTransaction;
 				_statusVector = null;
 				base.Dispose();
-				_disposed = true;
 			}
 		}
 

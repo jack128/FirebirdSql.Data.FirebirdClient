@@ -147,6 +147,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			{
 				if (!_disposed)
 				{
+					_disposed = true;
 					if (_shouldDisposeSelectCommand)
 					{
 						if (SelectCommand != null)
@@ -156,7 +157,6 @@ namespace FirebirdSql.Data.FirebirdClient
 						}
 					}
 					base.Dispose(disposing);
-					_disposed = true;
 				}
 			}
 		}

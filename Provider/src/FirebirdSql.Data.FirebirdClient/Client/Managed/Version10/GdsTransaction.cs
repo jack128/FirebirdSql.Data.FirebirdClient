@@ -76,6 +76,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		{
 			if (!_disposed)
 			{
+				_disposed = true;
 				if (_state != TransactionState.NoTransaction)
 				{
 					Rollback();
@@ -84,7 +85,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				_handle = 0;
 				_state = TransactionState.NoTransaction;
 				base.Dispose();
-				_disposed = true;
 			}
 		}
 

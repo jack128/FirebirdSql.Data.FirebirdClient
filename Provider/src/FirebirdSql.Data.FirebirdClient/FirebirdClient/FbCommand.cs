@@ -361,6 +361,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			{
 				if (!_disposed)
 				{
+					_disposed = true;
 					Release();
 					_commandTimeout = 0;
 					_fetchSize = 0;
@@ -377,7 +378,6 @@ namespace FirebirdSql.Data.FirebirdClient
 						_namedParameters = null;
 					}
 					base.Dispose(disposing);
-					_disposed = true;
 				}
 			}
 		}

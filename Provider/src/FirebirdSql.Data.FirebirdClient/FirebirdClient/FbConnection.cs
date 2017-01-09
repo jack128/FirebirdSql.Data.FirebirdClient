@@ -286,12 +286,12 @@ namespace FirebirdSql.Data.FirebirdClient
 			{
 				if (!_disposed)
 				{
+					_disposed = true;
 					Close();
 					_innerConnection = null;
 					_options = null;
 					_connectionString = null;
 					base.Dispose(disposing);
-					_disposed = true;
 				}
 			}
 		}

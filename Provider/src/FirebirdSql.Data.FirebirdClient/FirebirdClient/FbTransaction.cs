@@ -87,6 +87,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			{
 				if (!_disposed)
 				{
+					_disposed = true;
 					if (_transaction != null)
 					{
 						if (!_isCompleted)
@@ -98,7 +99,6 @@ namespace FirebirdSql.Data.FirebirdClient
 					_transaction = null;
 					_isCompleted = true;
 					base.Dispose(disposing);
-					_disposed = true;
 				}
 			}
 		}

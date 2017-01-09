@@ -174,6 +174,7 @@ namespace FirebirdSql.Data.Client.Native
 		{
 			if (!_disposed)
 			{
+				_disposed = true;
 				Release();
 				Clear();
 				_db = null;
@@ -189,7 +190,6 @@ namespace FirebirdSql.Data.Client.Native
 				_handle.Dispose();
 				FetchSize = 0;
 				base.Dispose();
-				_disposed = true;
 			}
 		}
 
