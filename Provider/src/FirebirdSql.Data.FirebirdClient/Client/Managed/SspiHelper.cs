@@ -270,7 +270,7 @@ namespace FirebirdSql.Data.Client.Managed
 
 		private SecHandle _clientCredentials;
 		private SecHandle _clientContext;
-		private bool _disposed = false;
+		private bool _disposed;
 
 		private string _securPackage;
 		private string _remotePrincipal;

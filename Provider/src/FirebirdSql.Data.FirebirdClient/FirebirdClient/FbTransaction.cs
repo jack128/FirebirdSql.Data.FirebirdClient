@@ -73,9 +73,6 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		internal FbTransaction(FbConnection connection, IsolationLevel il)
 		{
-			_disposed = false;
-			_isCompleted = false;
-
 			_connection = connection;
 			IsolationLevel = il;
 		}
