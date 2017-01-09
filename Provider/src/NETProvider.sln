@@ -12,7 +12,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EntityFramework.Firebird_NE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EntityFramework.Firebird_NET45", "EntityFramework.Firebird\EntityFramework.Firebird_NET45.csproj", "{8DE3EDEE-C361-4DA2-96F0-35795D5BF071}"
 EndProject
-Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "FirebirdSql.Data.FirebirdClient_NETCORE10", "FirebirdSql.Data.FirebirdClient\FirebirdSql.Data.FirebirdClient_NETCORE10.xproj", "{623D96D1-D6C0-45BF-B077-AB4F6CFB987A}"
+Project("{8BB2217D-0F2D-49D1-97BC-3654ED321F3B}") = "FirebirdSql.Data.FirebirdClient_NETCORE10", "FirebirdSql.Data.FirebirdClient\_NETCORE10\FirebirdSql.Data.FirebirdClient_NETCORE10.xproj", "{623D96D1-D6C0-45BF-B077-AB4F6CFB987A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

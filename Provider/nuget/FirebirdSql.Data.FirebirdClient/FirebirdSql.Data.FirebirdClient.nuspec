@@ -41,6 +41,9 @@
         <dependency id="System.Threading.Thread" version="[4.0.0, )" />
         <dependency id="System.Threading.Timer" version="[4.0.1, )" />
       </group>
+      <group targetFramework="net40-client">
+        <dependency id="Microsoft.Bcl.Async" version="1.0.168" />
+      </group>
     </dependencies>
   </metadata>
   <files>

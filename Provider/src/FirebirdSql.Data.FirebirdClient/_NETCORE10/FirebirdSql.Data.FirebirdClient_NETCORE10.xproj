@@ -14,9 +14,5 @@
   <PropertyGroup>
     <SchemaVersion>2.0</SchemaVersion>
   </PropertyGroup>
-  <ItemGroup>
-    <DnxInvisibleContent Include="FirebirdSql.Data.FirebirdClient_NET40.project.json" />
-    <DnxInvisibleContent Include="FirebirdSql.Data.FirebirdClient_NET45.project.json" />
-  </ItemGroup>
   <Import Project="$(VSToolsPath)\DotNet\Microsoft.DotNet.targets" Condition="'$(VSToolsPath)' != ''" />
 </Project>
