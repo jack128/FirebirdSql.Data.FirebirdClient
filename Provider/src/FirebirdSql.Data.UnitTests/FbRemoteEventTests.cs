@@ -43,6 +43,7 @@ namespace FirebirdSql.Data.UnitTests
 				{
 					triggered = e.Name == "test" && e.Counts == 1;
 				};
+				@event.QueueEvents("test");
 				using (var cmd = Connection.CreateCommand())
 				{
 					cmd.CommandText = "execute block as begin post_event 'test'; end";
