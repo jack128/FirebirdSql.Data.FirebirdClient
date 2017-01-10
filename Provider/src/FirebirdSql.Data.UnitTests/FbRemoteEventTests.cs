@@ -87,7 +87,7 @@ namespace FirebirdSql.Data.UnitTests
 		}
 
 		[Test]
-		public void EventNameSelectionTest()
+		public void EventNameSeparateSelectionTest()
 		{
 			var error = false;
 			var triggeredA = false;
@@ -114,7 +114,45 @@ namespace FirebirdSql.Data.UnitTests
 				using (var cmd = Connection.CreateCommand())
 				{
 					cmd.CommandText = "execute block as begin post_event 'b'; end";
+					cmd.ExecuteNonQuery();
 					cmd.CommandText = "execute block as begin post_event 'a'; end";
+					cmd.ExecuteNonQuery();
+				}
+				Thread.Sleep(200);
+				Assert.IsFalse(error);
+				Assert.IsTrue(triggeredA);
+				Assert.IsTrue(triggeredB);
+			}
+		}
+
+		[Test]
+		public void EventNameTogetherSelectionTest()
+		{
+			var error = false;
+			var triggeredA = false;
+			var triggeredB = false;
+			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
+			{
+				@event.RemoteEventError += (sender, e) =>
+				{
+					error = true;
+				};
+				@event.RemoteEventCounts += (sender, e) =>
+				{
+					switch (e.Name)
+					{
+						case "a":
+							triggeredA = e.Counts == 1;
+							break;
+						case "b":
+							triggeredB = e.Counts == 1;
+							break;
+					}
+				};
+				@event.QueueEvents("a", "b");
+				using (var cmd = Connection.CreateCommand())
+				{
+					cmd.CommandText = "execute block as begin post_event 'b'; post_event 'a'; end";
 					cmd.ExecuteNonQuery();
 				}
 				Thread.Sleep(200);
