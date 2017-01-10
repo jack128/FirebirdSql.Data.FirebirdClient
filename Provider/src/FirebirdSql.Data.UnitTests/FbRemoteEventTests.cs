@@ -54,7 +54,7 @@ namespace FirebirdSql.Data.UnitTests
 		}
 
 		[Test]
-		public void ProperCountsSingle()
+		public void ProperCountsSingleTest()
 		{
 			var triggered = false;
 			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
