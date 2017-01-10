@@ -33,7 +33,7 @@ namespace FirebirdSql.Data.UnitTests
 		{ }
 
 		[Test]
-		public void EventComesBackTest()
+		public void EventSimplyComesBackTest()
 		{
 			var triggered = false;
 			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
@@ -45,6 +45,31 @@ namespace FirebirdSql.Data.UnitTests
 				@event.QueueEvents("test");
 				using (var cmd = Connection.CreateCommand())
 				{
+					cmd.CommandText = "execute block as begin post_event 'test'; end";
+					cmd.ExecuteNonQuery();
+				}
+				Thread.Sleep(200);
+				Assert.IsTrue(triggered);
+			}
+		}
+
+		[Test]
+		public void ProperCountsSingle()
+		{
+			var triggered = false;
+			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
+			{
+				@event.RemoteEventCounts += (sender, e) =>
+				{
+					triggered = e.Name == "test" && e.Counts == 5;
+				};
+				@event.QueueEvents("test");
+				using (var cmd = Connection.CreateCommand())
+				{
+					cmd.CommandText = "execute block as begin post_event 'test'; end";
+					cmd.CommandText = "execute block as begin post_event 'test'; end";
+					cmd.CommandText = "execute block as begin post_event 'test'; end";
+					cmd.CommandText = "execute block as begin post_event 'test'; end";
 					cmd.CommandText = "execute block as begin post_event 'test'; end";
 					cmd.ExecuteNonQuery();
 				}
