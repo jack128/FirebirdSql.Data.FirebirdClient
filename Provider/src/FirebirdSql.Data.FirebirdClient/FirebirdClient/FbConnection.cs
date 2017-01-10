@@ -101,8 +101,10 @@ namespace FirebirdSql.Data.FirebirdClient
 					dpb.Append(IscCodes.isc_dpb_page_size, pageSize);
 				}
 
-				FbConnectionInternal db = new FbConnectionInternal(options);
-				db.CreateDatabase(dpb);
+				using (FbConnectionInternal db = new FbConnectionInternal(options))
+				{
+					db.CreateDatabase(dpb);
+				}
 			}
 			catch (IscException ex)
 			{
@@ -117,8 +119,10 @@ namespace FirebirdSql.Data.FirebirdClient
 
 			try
 			{
-				FbConnectionInternal db = new FbConnectionInternal(options);
-				db.DropDatabase();
+				using (FbConnectionInternal db = new FbConnectionInternal(options))
+				{
+					db.DropDatabase();
+				}
 			}
 			catch (IscException ex)
 			{
