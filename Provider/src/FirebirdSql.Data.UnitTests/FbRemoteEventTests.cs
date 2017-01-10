@@ -77,5 +77,37 @@ namespace FirebirdSql.Data.UnitTests
 				Assert.IsTrue(triggered);
 			}
 		}
+
+		[Test]
+		public void EventNameSelectionTest()
+		{
+			var triggeredA = false;
+			var triggeredB = false;
+			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
+			{
+				@event.RemoteEventCounts += (sender, e) =>
+				{
+					switch (e.Name)
+					{
+						case "a":
+							triggeredA = e.Counts == 1;
+							break;
+						case "b":
+							triggeredB = e.Counts == 1;
+							break;
+					}
+				};
+				@event.QueueEvents("a", "b");
+				using (var cmd = Connection.CreateCommand())
+				{
+					cmd.CommandText = "execute block as begin post_event 'b'; end";
+					cmd.CommandText = "execute block as begin post_event 'a'; end";
+					cmd.ExecuteNonQuery();
+				}
+				Thread.Sleep(200);
+				Assert.IsTrue(triggeredA);
+				Assert.IsTrue(triggeredB);
+			}
+		}
 	}
 }
