@@ -26,7 +26,6 @@ namespace FirebirdSql.Data.UnitTests
 {
 	[FbTestFixture(FbServerType.Default, false)]
 	[FbTestFixture(FbServerType.Default, true)]
-	[FbTestFixture(FbServerType.Embedded, default(bool))]
 	public class FbRemoteEventTests : TestsBase
 	{
 		public FbRemoteEventTests(FbServerType serverType, bool compression)
