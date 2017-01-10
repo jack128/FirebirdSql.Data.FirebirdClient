@@ -77,11 +77,7 @@ namespace FirebirdSql.Data.UnitTests
 				@event.QueueEvents("test");
 				using (var cmd = Connection.CreateCommand())
 				{
-					cmd.CommandText = "execute block as begin post_event 'test'; end";
-					cmd.CommandText = "execute block as begin post_event 'test'; end";
-					cmd.CommandText = "execute block as begin post_event 'test'; end";
-					cmd.CommandText = "execute block as begin post_event 'test'; end";
-					cmd.CommandText = "execute block as begin post_event 'test'; end";
+					cmd.CommandText = "execute block as begin post_event 'test'; post_event 'test'; post_event 'test'; post_event 'test'; post_event 'test'; end";
 					cmd.ExecuteNonQuery();
 				}
 				Thread.Sleep(200);
