@@ -35,9 +35,14 @@ namespace FirebirdSql.Data.UnitTests
 		[Test]
 		public void EventSimplyComesBackTest()
 		{
+			var error = false;
 			var triggered = false;
 			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
 			{
+				@event.RemoteEventError += (sender, e) =>
+				{
+					error = true;
+				};
 				@event.RemoteEventCounts += (sender, e) =>
 				{
 					triggered = e.Name == "test" && e.Counts == 1;
@@ -49,6 +54,7 @@ namespace FirebirdSql.Data.UnitTests
 					cmd.ExecuteNonQuery();
 				}
 				Thread.Sleep(200);
+				Assert.IsFalse(error);
 				Assert.IsTrue(triggered);
 			}
 		}
@@ -56,9 +62,14 @@ namespace FirebirdSql.Data.UnitTests
 		[Test]
 		public void ProperCountsSingleTest()
 		{
+			var error = false;
 			var triggered = false;
 			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
 			{
+				@event.RemoteEventError += (sender, e) =>
+				{
+					error = true;
+				};
 				@event.RemoteEventCounts += (sender, e) =>
 				{
 					triggered = e.Name == "test" && e.Counts == 5;
@@ -74,6 +85,7 @@ namespace FirebirdSql.Data.UnitTests
 					cmd.ExecuteNonQuery();
 				}
 				Thread.Sleep(200);
+				Assert.IsFalse(error);
 				Assert.IsTrue(triggered);
 			}
 		}
@@ -81,10 +93,15 @@ namespace FirebirdSql.Data.UnitTests
 		[Test]
 		public void EventNameSelectionTest()
 		{
+			var error = false;
 			var triggeredA = false;
 			var triggeredB = false;
 			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
 			{
+				@event.RemoteEventError += (sender, e) =>
+				{
+					error = true;
+				};
 				@event.RemoteEventCounts += (sender, e) =>
 				{
 					switch (e.Name)
@@ -105,6 +122,7 @@ namespace FirebirdSql.Data.UnitTests
 					cmd.ExecuteNonQuery();
 				}
 				Thread.Sleep(200);
+				Assert.IsFalse(error);
 				Assert.IsTrue(triggeredA);
 				Assert.IsTrue(triggeredB);
 			}
