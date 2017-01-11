@@ -126,7 +126,7 @@ namespace FirebirdSql.Data.Common
 		internal EventParameterBuffer ToEpb()
 		{
 			_currentCounts = _currentCounts ?? new int[_events.Count];
-			EventParameterBuffer epb = new EventParameterBuffer();
+			var epb = new EventParameterBuffer();
 			epb.Append(IscCodes.EPB_version1);
 			for (var i = 0; i < _events.Count; i++)
 			{

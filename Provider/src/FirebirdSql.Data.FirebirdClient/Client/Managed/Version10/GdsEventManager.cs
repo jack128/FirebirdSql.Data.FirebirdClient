@@ -37,7 +37,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		public GdsEventManager(int handle, string ipAddress, int portNumber)
 		{
 			_handle = handle;
-			GdsConnection connection = new GdsConnection(ipAddress, portNumber);
+			var connection = new GdsConnection(ipAddress, portNumber);
 			connection.Connect();
 			_database = new GdsDatabase(connection);
 		}
