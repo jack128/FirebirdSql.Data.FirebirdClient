@@ -23,12 +23,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 namespace FirebirdSql.Data.Common
 {
 	internal class RemoteEvent
 	{
-		internal const int MaxEvents = ushort.MaxValue;
+		const int MaxEvents = ushort.MaxValue;
 
 		private List<string> _events;
 		private Charset _charset;
@@ -56,10 +57,18 @@ namespace FirebirdSql.Data.Common
 			_db = db;
 		}
 
-		public void QueueEvents()
+		public void QueueEvents(ICollection<string> events)
 		{
-			Volatile2.Write(ref _running, 1);
-			_db.QueueEvents(this);
+			if (Interlocked.Exchange(ref _running, 1) == 1)
+				throw new InvalidOperationException("Events are already running.");
+			if (events == null)
+				throw new ArgumentNullException(nameof(events));
+			if (events.Count == 0)
+				throw new ArgumentOutOfRangeException(nameof(events), "Need to provide at least one event.");
+			if (events.Count > MaxEvents)
+				throw new ArgumentOutOfRangeException(nameof(events), $"Maximum number of events is {MaxEvents}.");
+			_events.AddRange(events);
+			QueueEventsImpl();
 		}
 
 		public void CancelEvents()
@@ -68,6 +77,12 @@ namespace FirebirdSql.Data.Common
 			_db.CancelEvents(this);
 			_currentCounts = null;
 			_previousCounts = null;
+			_events.Clear();
+		}
+
+		void QueueEventsImpl()
+		{
+			_db.QueueEvents(this);
 		}
 
 		internal void EventCounts(byte[] buffer)
@@ -100,7 +115,7 @@ namespace FirebirdSql.Data.Common
 				EventCountsCallback(_events[i], count);
 			}
 
-			QueueEvents();
+			QueueEventsImpl();
 		}
 
 		internal void EventError(Exception error)

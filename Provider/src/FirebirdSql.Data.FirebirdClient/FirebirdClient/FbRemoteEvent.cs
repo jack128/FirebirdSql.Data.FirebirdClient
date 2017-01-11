@@ -56,19 +56,9 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		public void QueueEvents(params string[] events)
 		{
-			if (_revent.Events.Any())
-				throw new InvalidOperationException("Events are already running.");
-			if (events == null)
-				throw new ArgumentNullException(nameof(events));
-			if (events.Length == 0)
-				throw new ArgumentOutOfRangeException(nameof(events), "Need to provide at least one event.");
-			if (events.Length > RemoteEvent.MaxEvents)
-				throw new ArgumentOutOfRangeException(nameof(events), $"Maximum number of events is {RemoteEvent.MaxEvents}.");
-
-			_revent.Events.AddRange(events);
 			try
 			{
-				_revent.QueueEvents();
+				_revent.QueueEvents(events);
 			}
 			catch (IscException ex)
 			{
@@ -86,7 +76,6 @@ namespace FirebirdSql.Data.FirebirdClient
 			{
 				throw new FbException(ex.Message, ex);
 			}
-			_revent.Events.Clear();
 		}
 
 		private void OnRemoteEventCounts(string name, int count)
