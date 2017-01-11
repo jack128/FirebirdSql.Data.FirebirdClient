@@ -194,5 +194,15 @@ namespace FirebirdSql.Data.UnitTests
 				Assert.AreEqual(1, triggered);
 			}
 		}
+
+		[Test]
+		public void DoubleQueueingTest()
+		{
+			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
+			{
+				Assert.DoesNotThrow(() => @event.QueueEvents("test"));
+				Assert.Throws<InvalidOperationException>(() => @event.QueueEvents("test"));
+			}
+		}
 	}
 }
