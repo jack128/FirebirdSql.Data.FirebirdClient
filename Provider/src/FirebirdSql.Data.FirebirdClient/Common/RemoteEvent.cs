@@ -102,6 +102,7 @@ namespace FirebirdSql.Data.Common
 				pos += length;
 
 				var index = _events.IndexOf(eventName);
+				Debug.Assert(index != -1);
 				_currentCounts[index] = BitConverter.ToInt32(buffer, pos) - 1;
 
 				pos += 4;
