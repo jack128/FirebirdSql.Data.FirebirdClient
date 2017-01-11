@@ -35,6 +35,7 @@ namespace FirebirdSql.Data.Common
 		private IDatabase _db;
 		private int[] _previousCounts;
 		private int[] _currentCounts;
+		private int _running;
 
 		public int LocalId { get; set; }
 		public int RemoteId { get; set; }
@@ -57,11 +58,13 @@ namespace FirebirdSql.Data.Common
 
 		public void QueueEvents()
 		{
+			Volatile2.Write(ref _running, 1);
 			_db.QueueEvents(this);
 		}
 
 		public void CancelEvents()
 		{
+			Volatile2.Write(ref _running, 0);
 			_db.CancelEvents(this);
 			_currentCounts = null;
 			_previousCounts = null;
@@ -69,11 +72,13 @@ namespace FirebirdSql.Data.Common
 
 		internal void EventCounts(byte[] buffer)
 		{
-			var pos = 1;
+			if (Volatile2.Read(ref _running) == 0)
+				return;
 
 			_previousCounts = _currentCounts;
 			_currentCounts = new int[_events.Count];
 
+			var pos = 1;
 			while (pos < buffer.Length)
 			{
 				var length = buffer[pos++];
