@@ -31,12 +31,12 @@ namespace FirebirdSql.Data.Common
 	{
 		const int MaxEvents = ushort.MaxValue;
 
-		private List<string> _events;
-		private Charset _charset;
-		private IDatabase _db;
-		private int[] _previousCounts;
-		private int[] _currentCounts;
-		private int _running;
+		List<string> _events;
+		Charset _charset;
+		IDatabase _db;
+		int[] _previousCounts;
+		int[] _currentCounts;
+		int _running;
 
 		public int LocalId { get; set; }
 		public int RemoteId { get; set; }

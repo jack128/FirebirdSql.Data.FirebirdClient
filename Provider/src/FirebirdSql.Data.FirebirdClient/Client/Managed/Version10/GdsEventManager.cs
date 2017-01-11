@@ -31,8 +31,8 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 {
 	internal class GdsEventManager : IDisposable
 	{
-		private int _handle;
-		private GdsDatabase _database;
+		int _handle;
+		GdsDatabase _database;
 
 		public GdsEventManager(int handle, string ipAddress, int portNumber)
 		{
@@ -87,7 +87,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			_database.CloseConnection();
 		}
 
-		private bool IsEventsReturnSocketError(SocketError? error)
+		bool IsEventsReturnSocketError(SocketError? error)
 		{
 			return error == SocketError.Interrupted
 				|| error == SocketError.ConnectionReset
