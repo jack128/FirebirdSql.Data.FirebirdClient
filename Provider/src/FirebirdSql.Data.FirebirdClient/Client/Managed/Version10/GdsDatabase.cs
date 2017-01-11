@@ -422,7 +422,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		{
 			if (_eventManager != null)
 			{
-				_eventManager.Close();
+				_eventManager.Dispose();
 				_eventManager = null;
 			}
 		}
