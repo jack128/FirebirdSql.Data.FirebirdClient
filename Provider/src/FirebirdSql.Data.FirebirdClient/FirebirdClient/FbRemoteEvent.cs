@@ -28,7 +28,6 @@ namespace FirebirdSql.Data.FirebirdClient
 {
 	public sealed class FbRemoteEvent : IDisposable
 	{
-
 		private FbConnectionInternal _connection;
 		private RemoteEvent _revent;
 		private SynchronizationContext _synchronizationContext;
