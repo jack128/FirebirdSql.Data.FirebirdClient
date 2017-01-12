@@ -70,6 +70,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 							break;
 					}
 				}
+				// happens as the connection is closed
 				catch (ObjectDisposedException)
 				{
 					return;
