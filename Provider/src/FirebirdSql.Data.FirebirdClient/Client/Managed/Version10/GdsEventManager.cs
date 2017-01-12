@@ -58,9 +58,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 							var ast = _database.XdrStream.ReadBytes(8);
 							var eventId = _database.XdrStream.ReadInt32();
 
-							Debug.Assert(_handle == dbHandle);
-							Debug.Assert(remoteEvent.LocalId == eventId);
-
 							remoteEvent.EventCounts(buffer);
 
 							break;
