@@ -427,7 +427,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
-		public void QueueEvents(RemoteEvent events)
+		public void QueueEvents(RemoteEvent remoteEvent)
 		{
 			try
 			{
@@ -440,23 +440,23 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 					_eventManager = new GdsEventManager(auxHandle, ipAddress, portNumber);
 				}
 
-				events.LocalId++;
-				var dummy = _eventManager.WaitForEventsAsync(events);
+				remoteEvent.LocalId++;
+				var dummy = _eventManager.WaitForEventsAsync(remoteEvent);
 
-				EventParameterBuffer epb = events.ToEpb();
+				EventParameterBuffer epb = remoteEvent.ToEpb();
 
 				XdrStream.Write(IscCodes.op_que_events);
 				XdrStream.Write(_handle);
 				XdrStream.WriteBuffer(epb.ToArray());
 				XdrStream.Write(AddressOfAstRoutine);
 				XdrStream.Write(ArgumentToAstRoutine);
-				XdrStream.Write(events.LocalId);
+				XdrStream.Write(remoteEvent.LocalId);
 
 				XdrStream.Flush();
 
 				GenericResponse response = (GenericResponse)ReadResponse();
 
-				events.RemoteId = response.ObjectHandle;
+				remoteEvent.RemoteId = response.ObjectHandle;
 			}
 			catch (IOException ex)
 			{
