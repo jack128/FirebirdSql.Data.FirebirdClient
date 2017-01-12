@@ -438,10 +438,10 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 					int auxHandle;
 					ConnectionRequest(out auxHandle, out ipAddress, out portNumber);
 					_eventManager = new GdsEventManager(auxHandle, ipAddress, portNumber);
+					var dummy = _eventManager.WaitForEventsAsync(remoteEvent);
 				}
 
 				remoteEvent.LocalId++;
-				var dummy = _eventManager.WaitForEventsAsync(remoteEvent);
 
 				EventParameterBuffer epb = remoteEvent.ToEpb();
 

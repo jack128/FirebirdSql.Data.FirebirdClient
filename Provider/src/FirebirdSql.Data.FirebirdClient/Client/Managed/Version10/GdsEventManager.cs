@@ -44,37 +44,41 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 		public async Task WaitForEventsAsync(RemoteEvent remoteEvent)
 		{
-			try
+			while (true)
 			{
-				var operation = await _database.NextOperationAsync().ConfigureAwait(false);
-
-				switch (operation)
+				try
 				{
-					case IscCodes.op_event:
-						var dbHandle = _database.XdrStream.ReadInt32();
-						var buffer = _database.XdrStream.ReadBuffer();
-						var ast = _database.XdrStream.ReadBytes(8);
-						var eventId = _database.XdrStream.ReadInt32();
+					var operation = await _database.NextOperationAsync().ConfigureAwait(false);
 
-						Debug.Assert(_handle == dbHandle);
-						Debug.Assert(remoteEvent.LocalId == eventId);
+					switch (operation)
+					{
+						case IscCodes.op_event:
+							var dbHandle = _database.XdrStream.ReadInt32();
+							var buffer = _database.XdrStream.ReadBuffer();
+							var ast = _database.XdrStream.ReadBytes(8);
+							var eventId = _database.XdrStream.ReadInt32();
 
-						remoteEvent.EventCounts(buffer);
+							Debug.Assert(_handle == dbHandle);
+							Debug.Assert(remoteEvent.LocalId == eventId);
 
-						break;
+							remoteEvent.EventCounts(buffer);
 
-					default:
-						Debug.Assert(false);
-						break;
+							break;
+
+						default:
+							Debug.Assert(false);
+							break;
+					}
 				}
-			}
-			catch (ObjectDisposedException)
-			{
-				return;
-			}
-			catch (Exception ex)
-			{
-				remoteEvent.EventError(ex);
+				catch (ObjectDisposedException)
+				{
+					return;
+				}
+				catch (Exception ex)
+				{
+					remoteEvent.EventError(ex);
+					break;
+				}
 			}
 		}
 
