@@ -205,5 +205,45 @@ namespace FirebirdSql.Data.UnitTests
 				Assert.Throws<InvalidOperationException>(() => @event.QueueEvents("test"));
 			}
 		}
+
+		[Test]
+		public void NoEventsAfterDispose()
+		{
+			var triggered = 0;
+			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
+			{
+				@event.RemoteEventCounts += (sender, e) =>
+				{
+					triggered++;
+				};
+				@event.QueueEvents("test");
+				Thread.Sleep(200);
+			}
+			Thread.Sleep(200);
+			using (var cmd = Connection.CreateCommand())
+			{
+				cmd.CommandText = "execute block as begin post_event 'test'; end";
+				cmd.ExecuteNonQuery();
+				Thread.Sleep(200);
+			}
+			Assert.AreEqual(0, triggered);
+		}
+
+		[Test]
+		public void NoExceptionWithDispose()
+		{
+			var exception = (Exception)null;
+			using (var @event = new FbRemoteEvent(Connection.ConnectionString))
+			{
+				@event.RemoteEventError += (sender, e) =>
+				{
+					exception = e.Error;
+				};
+				@event.QueueEvents("test");
+				Thread.Sleep(200);
+			}
+			Thread.Sleep(200);
+			Assert.IsNull(exception);
+		}
 	}
 }
