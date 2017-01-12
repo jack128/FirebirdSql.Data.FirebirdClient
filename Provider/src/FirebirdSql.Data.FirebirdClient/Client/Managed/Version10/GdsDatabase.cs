@@ -222,6 +222,8 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 			try
 			{
+				CloseEventManager();
+
 				if (_handle != 0)
 				{
 					XdrStream.Write(IscCodes.op_detach);
@@ -229,8 +231,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				}
 				XdrStream.Write(IscCodes.op_disconnect);
 				XdrStream.Flush();
-
-				CloseEventManager();
 
 				CloseConnection();
 

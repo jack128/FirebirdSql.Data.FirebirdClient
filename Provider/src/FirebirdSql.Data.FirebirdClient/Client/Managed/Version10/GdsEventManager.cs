@@ -72,7 +72,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 						break;
 				}
 			}
-			catch (IOException ex) when (IsEventsReturnSocketError((ex.InnerException as SocketException)?.SocketErrorCode))
+			catch (ObjectDisposedException)
 			{
 				return;
 			}
@@ -85,13 +85,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		public void Dispose()
 		{
 			_database.CloseConnection();
-		}
-
-		bool IsEventsReturnSocketError(SocketError? error)
-		{
-			return error == SocketError.Interrupted
-				|| error == SocketError.ConnectionReset
-				|| error == SocketError.ConnectionAborted;
 		}
 	}
 }
