@@ -80,7 +80,7 @@ namespace FirebirdSql.Data.Client.Managed
 
 		private BinaryWriter _outputWriter;
 		// do not dispose reader to prevent unconditional dispose of _innerStream
-		private BinaryReader _inputReader;
+		private XdrBinaryReader _inputReader;
 
 		private Ionic.Zlib.ZlibCodec _deflate;
 		private byte[] _compressionBuffer;
@@ -146,7 +146,8 @@ namespace FirebirdSql.Data.Client.Managed
 				streamWrapper = new DecompressionStream(_innerStream, PreferredBufferSize, 1024 * 1024);
 			else if (!(_innerStream is MemoryStream))
 				streamWrapper = new BufferedStream(_innerStream, PreferredBufferSize);
-			_inputReader = new BinaryReader(streamWrapper);
+			//_inputReader = new BinaryReader(streamWrapper);
+			_inputReader = new XdrBinaryReader(streamWrapper, _charset);
 
 			_outputWriter = new BinaryWriter(new MemoryStream());
 
@@ -320,195 +321,33 @@ namespace FirebirdSql.Data.Client.Managed
 
 		#region XDR Read Methods
 
-		private int ReadBytes(byte[] buffer, int count)
-		{
-			if (count > 0)
-			{
-				var toRead = count;
-				var currentlyRead = -1;
-				while (toRead > 0 && currentlyRead != 0)
-				{
-					toRead -= (currentlyRead = Read(buffer, count - toRead, toRead));
-				}
-				if (toRead == count)
-				{
-					throw new IOException();
-				}
+		public byte[] ReadBytes(int count) => _inputReader.ReadBytes(count);
+		public byte[] ReadOpaque(int length) => _inputReader.ReadOpaque(length);
+		public byte[] ReadBuffer() => _inputReader.ReadBuffer();
 
-				return count - toRead;
-			}
-			return 0;
-		}
+		public string ReadString() => _inputReader.ReadString();
+		public string ReadString(int length) => _inputReader.ReadString(length);
+		public string ReadString(Charset charset) => _inputReader.ReadString(charset);
+		public string ReadString(Charset charset, int length) => _inputReader.ReadString(charset, length);
 
-		public byte[] ReadBytes(int count)
-		{
-			var buffer = new byte[count];
-			ReadBytes(buffer, count);
-			return buffer;
-		}
+		public short ReadInt16() => _inputReader.ReadInt16();
+		public int ReadInt32() => _inputReader.ReadInt32();
+		public long ReadInt64() => _inputReader.ReadInt64();
 
-		public byte[] ReadOpaque(int length)
-		{
-			var buffer = ReadBytes(length);
-			var padLength = ((4 - length) & 3);
-			if (padLength > 0)
-			{
-				Read(Pad, 0, padLength);
-			}
-			return buffer;
-		}
+		public Guid ReadGuid(int length) => _inputReader.ReadGuid();
 
-		public byte[] ReadBuffer()
-		{
-			return ReadOpaque((ushort)ReadInt32());
-		}
+		public float ReadSingle() => _inputReader.ReadSingle();
+		public double ReadDouble() => _inputReader.ReadDouble();
 
-		public string ReadString()
-		{
-			return ReadString(_charset);
-		}
+		public DateTime ReadDateTime() => _inputReader.ReadDateTime();
+		public DateTime ReadDate() => _inputReader.ReadDate();
+		public TimeSpan ReadTime() => _inputReader.ReadTime();
 
-		public string ReadString(int length)
-		{
-			return ReadString(_charset, length);
-		}
+		public decimal ReadDecimal(int type, int scale) => _inputReader.ReadDecimal(type, scale);
+		public bool ReadBoolean() => _inputReader.ReadBoolean();
+		public IscException ReadStatusVector() => _inputReader.ReadStatusVector();
 
-		public string ReadString(Charset charset)
-		{
-			return ReadString(charset, ReadInt32());
-		}
-
-		public string ReadString(Charset charset, int length)
-		{
-			var buffer = ReadOpaque(length);
-			return charset.GetString(buffer, 0, buffer.Length);
-		}
-
-		public short ReadInt16()
-		{
-			return Convert.ToInt16(ReadInt32());
-		}
-
-		public int ReadInt32()
-		{
-			return IPAddress.HostToNetworkOrder(_inputReader.ReadInt32());
-		}
-
-		public long ReadInt64()
-		{
-			return IPAddress.HostToNetworkOrder(_inputReader.ReadInt64());
-		}
-
-		public Guid ReadGuid(int length)
-		{
-			return new Guid(ReadOpaque(length));
-		}
-
-		public float ReadSingle()
-		{
-			return BitConverter.ToSingle(BitConverter.GetBytes(ReadInt32()), 0);
-		}
-
-		public double ReadDouble()
-		{
-			var value = ReadInt64();
-			return BitConverter.Int64BitsToDouble(value);
-		}
-
-		public DateTime ReadDateTime()
-		{
-			DateTime date = ReadDate();
-			TimeSpan time = ReadTime();
-			return date.Add(time);
-		}
-
-		public DateTime ReadDate()
-		{
-			return TypeDecoder.DecodeDate(ReadInt32());
-		}
-
-		public TimeSpan ReadTime()
-		{
-			return TypeDecoder.DecodeTime(ReadInt32());
-		}
-
-		public decimal ReadDecimal(int type, int scale)
-		{
-			var value = 0m;
-			switch (type & ~1)
-			{
-				case IscCodes.SQL_SHORT:
-					value = TypeDecoder.DecodeDecimal(ReadInt16(), scale, type);
-					break;
-
-				case IscCodes.SQL_LONG:
-					value = TypeDecoder.DecodeDecimal(ReadInt32(), scale, type);
-					break;
-
-				case IscCodes.SQL_QUAD:
-				case IscCodes.SQL_INT64:
-					value = TypeDecoder.DecodeDecimal(ReadInt64(), scale, type);
-					break;
-
-				case IscCodes.SQL_DOUBLE:
-				case IscCodes.SQL_D_FLOAT:
-					value = Convert.ToDecimal(ReadDouble());
-					break;
-			}
-			return value;
-		}
-
-		public bool ReadBoolean()
-		{
-			return TypeDecoder.DecodeBoolean(ReadOpaque(1));
-		}
-
-		public IscException ReadStatusVector()
-		{
-			IscException exception = null;
-			bool eof = false;
-
-			while (!eof)
-			{
-				int arg = ReadInt32();
-
-				switch (arg)
-				{
-					case IscCodes.isc_arg_gds:
-					default:
-						int er = ReadInt32();
-						if (er != 0)
-						{
-							if (exception == null)
-							{
-								exception = IscException.ForBuilding();
-							}
-							exception.Errors.Add(new IscError(arg, er));
-						}
-						break;
-
-					case IscCodes.isc_arg_end:
-						exception?.BuildExceptionData();
-						eof = true;
-						break;
-
-					case IscCodes.isc_arg_interpreted:
-					case IscCodes.isc_arg_string:
-						exception.Errors.Add(new IscError(arg, ReadString()));
-						break;
-
-					case IscCodes.isc_arg_number:
-						exception.Errors.Add(new IscError(arg, ReadInt32()));
-						break;
-
-					case IscCodes.isc_arg_sql_state:
-						exception.Errors.Add(new IscError(arg, ReadString()));
-						break;
-				}
-			}
-
-			return exception;
-		}
+		public void Skip(int count) => _inputReader.Skip(count);
 
 		#endregion
 
@@ -688,6 +527,195 @@ namespace FirebirdSql.Data.Client.Managed
 		#endregion
 	}
 
+	internal class XdrBinaryReader
+	{
+		private readonly Stream _stream;
+		private readonly Charset _charset;
+		private readonly byte[] _innerBuffer = new byte[128];
+		private static readonly byte[] _pad = new byte[4];
+
+		public XdrBinaryReader(Stream stream, Charset charset)
+		{
+			_stream = stream;
+			_charset = charset;
+		}
+
+		public Stream BaseStream => _stream;
+
+		private byte[] InternalReadBuffer(int count, bool opaque = false)
+		{
+			var result = count > _innerBuffer.Length ? new byte[count] : _innerBuffer;
+			InternalReadBuffer(result, 0, count, opaque);
+			return result;
+		}
+
+
+		private void InternalReadBuffer(byte[] buffer, int offset, int count, bool opaque = false)
+		{
+			var needToRead = count;
+			while (needToRead > 0)
+			{
+				var readed = Read(buffer, offset, needToRead);
+				if (readed == 0)
+					throw new IOException();
+				needToRead -= readed;
+				offset += readed;
+			}
+
+			if (opaque)
+			{
+				var padLength = ((4 - count) & 3);
+				if (padLength > 0)
+				{
+					Read(_pad, 0, padLength);
+				}
+			}
+		}
+
+		public int Read(byte[] buffer, int offset, int count) => _stream.Read(buffer, offset, count);
+
+		public byte[] ReadBytes(int count)
+		{
+			var result = new byte[count];
+			InternalReadBuffer(result, 0, count);
+			return result;
+		}
+
+		public byte[] ReadBuffer()
+		{
+			var result = new byte[(ushort) ReadInt32()];
+			InternalReadBuffer(result, 0, result.Length, opaque: true);
+			return result;
+		}
+
+		public byte[] ReadOpaque(int count)
+		{
+			var result = new byte[count];
+			InternalReadBuffer(result, 0, count, opaque: true);
+			return result;
+		}
+
+		public int ReadInt32() => IPAddress.HostToNetworkOrder(BitConverter.ToInt32(InternalReadBuffer(4), 0));
+		public short ReadInt16() => Convert.ToInt16(ReadInt32());
+		public long ReadInt64() => IPAddress.HostToNetworkOrder(BitConverter.ToInt64(InternalReadBuffer(8), 0));
+		public double ReadDouble() => BitConverter.Int64BitsToDouble(ReadInt64());
+		public float ReadSingle() => BitConverter.ToSingle(BitConverter.GetBytes(ReadInt32()), 0);
+
+		public string ReadString() => ReadString(_charset, ReadInt32());
+		public string ReadString(int length) => ReadString(_charset, length);
+		public string ReadString(Charset charset) => ReadString(charset, ReadInt32());
+
+		public string ReadString(Charset charset, int length)
+		{
+			var buf = InternalReadBuffer(length, opaque: true);
+			return charset.GetString(buf, 0, length);
+		}
+
+		public DateTime ReadDate() => TypeDecoder.DecodeDate(ReadInt32());
+		public TimeSpan ReadTime() => TypeDecoder.DecodeTime(ReadInt32());
+		public DateTime ReadDateTime()
+		{
+			var date = ReadDate();
+			var time = ReadTime();
+			return date.Add(time);
+		}
+
+		public decimal ReadDecimal(int type, int scale)
+		{
+			var value = 0m;
+			switch (type & ~1)
+			{
+				case IscCodes.SQL_SHORT:
+					value = TypeDecoder.DecodeDecimal(ReadInt16(), scale, type);
+					break;
+
+				case IscCodes.SQL_LONG:
+					value = TypeDecoder.DecodeDecimal(ReadInt32(), scale, type);
+					break;
+
+				case IscCodes.SQL_QUAD:
+				case IscCodes.SQL_INT64:
+					value = TypeDecoder.DecodeDecimal(ReadInt64(), scale, type);
+					break;
+
+				case IscCodes.SQL_DOUBLE:
+				case IscCodes.SQL_D_FLOAT:
+					value = Convert.ToDecimal(ReadDouble());
+					break;
+			}
+			return value;
+		}
+
+		public bool ReadBoolean()
+		{
+			return TypeDecoder.DecodeBoolean(InternalReadBuffer(1, opaque: true));
+		}
+
+		public Guid ReadGuid()
+		{
+			var buff = new byte[16];
+			InternalReadBuffer(buff, 0, 16);
+			return new Guid(buff);
+		}
+
+		public void Skip(int count)
+		{
+			while (count > 0)
+			{
+				var toRead = count > _innerBuffer.Length ? _innerBuffer.Length : count;
+				InternalReadBuffer(_innerBuffer, 0, toRead);
+				count -= toRead;
+			}
+		}
+
+		public IscException ReadStatusVector()
+		{
+			IscException exception = null;
+			bool eof = false;
+
+			while (!eof)
+			{
+				int arg = ReadInt32();
+
+				switch (arg)
+				{
+					case IscCodes.isc_arg_gds:
+					default:
+						int er = ReadInt32();
+						if (er != 0)
+						{
+							if (exception == null)
+							{
+								exception = IscException.ForBuilding();
+							}
+							exception.Errors.Add(new IscError(arg, er));
+						}
+						break;
+
+					case IscCodes.isc_arg_end:
+						exception?.BuildExceptionData();
+						eof = true;
+						break;
+
+					case IscCodes.isc_arg_interpreted:
+					case IscCodes.isc_arg_string:
+						exception.Errors.Add(new IscError(arg, ReadString()));
+						break;
+
+					case IscCodes.isc_arg_number:
+						exception.Errors.Add(new IscError(arg, ReadInt32()));
+						break;
+
+					case IscCodes.isc_arg_sql_state:
+						exception.Errors.Add(new IscError(arg, ReadString()));
+						break;
+				}
+			}
+
+			return exception;
+		}
+
+	}
 
 	internal class DecompressionStream: Stream
 	{
