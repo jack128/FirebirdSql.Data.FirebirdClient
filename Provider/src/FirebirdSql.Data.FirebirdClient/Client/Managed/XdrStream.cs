@@ -40,29 +40,11 @@ namespace FirebirdSql.Data.Client.Managed
 
 		#region Static Fields
 
-		private static byte[] fill;
 		private static byte[] pad;
 
 		#endregion
 
 		#region Static Properties
-
-		internal static byte[] Fill
-		{
-			get
-			{
-				if (fill == null)
-				{
-					fill = new byte[32767];
-					for (int i = 0; i < fill.Length; i++)
-					{
-						fill[i] = 32;
-					}
-				}
-
-				return fill;
-			}
-		}
 
 		private static byte[] Pad
 		{
@@ -78,7 +60,7 @@ namespace FirebirdSql.Data.Client.Managed
 		private readonly bool _compression;
 		private bool _ownsStream;
 
-		private BinaryWriter _outputWriter;
+		private XdrBinaryWriter _outputWriter;
 		// do not dispose reader to prevent unconditional dispose of _innerStream
 		private XdrBinaryReader _inputReader;
 
@@ -148,9 +130,7 @@ namespace FirebirdSql.Data.Client.Managed
 				streamWrapper = new BufferedStream(_innerStream, PreferredBufferSize);
 			//_inputReader = new BinaryReader(streamWrapper);
 			_inputReader = new XdrBinaryReader(streamWrapper, _charset);
-
-			_outputWriter = new BinaryWriter(new MemoryStream());
-
+			_outputWriter = new XdrBinaryWriter(new MemoryStream(), _charset);
 			ResetOperation();
 		}
 
@@ -353,35 +333,10 @@ namespace FirebirdSql.Data.Client.Managed
 
 		#region XDR Write Methods
 
-		public void WriteOpaque(byte[] buffer)
-		{
-			WriteOpaque(buffer, buffer.Length);
-		}
-
-		public void WriteOpaque(byte[] buffer, int length)
-		{
-			if (buffer != null && length > 0)
-			{
-				Write(buffer, 0, buffer.Length);
-				Write(Fill, 0, length - buffer.Length);
-				Write(Pad, 0, ((4 - length) & 3));
-			}
-		}
-
-		public void WriteBuffer(byte[] buffer)
-		{
-			WriteBuffer(buffer, buffer == null ? 0 : buffer.Length);
-		}
-
-		public void WriteBuffer(byte[] buffer, int length)
-		{
-			Write(length);
-			if (buffer != null && length > 0)
-			{
-				Write(buffer, 0, length);
-				Write(Pad, 0, ((4 - length) & 3));
-			}
-		}
+		public void WriteOpaque(byte[] buffer) => _outputWriter.WriteOpaque(buffer);
+		public void WriteOpaque(byte[] buffer, int length) => _outputWriter.WriteOpaque(buffer, length);
+		public void WriteBuffer(byte[] buffer) => WriteBuffer(buffer, buffer == null ? 0 : buffer.Length);
+		public void WriteBuffer(byte[] buffer, int length) => _outputWriter.WriteBuffer(buffer, length);
 
 		public void WriteBlobBuffer(byte[] buffer)
 		{
@@ -415,83 +370,17 @@ namespace FirebirdSql.Data.Client.Managed
 			Write(Pad, 0, ((4 - length) & 3));
 		}
 
-		public void Write(string value)
-		{
-			byte[] buffer = _charset.GetBytes(value);
-			WriteBuffer(buffer, buffer.Length);
-		}
-
-		public void Write(short value)
-		{
-			Write((int)value);
-		}
-
-		public void Write(int value)
-		{
-			_outputWriter.Write(IPAddress.NetworkToHostOrder(value));
-		}
-
-		public void Write(long value)
-		{
-			_outputWriter.Write(IPAddress.NetworkToHostOrder(value));
-		}
-
-		public void Write(float value)
-		{
-			var buffer = BitConverter.GetBytes(value);
-			Write(BitConverter.ToInt32(buffer, 0));
-		}
-
-		public void Write(double value)
-		{
-			Write(BitConverter.DoubleToInt64Bits(value));
-		}
-
-		public void Write(decimal value, int type, int scale)
-		{
-			object numeric = TypeEncoder.EncodeDecimal(value, scale, type);
-			switch (type & ~1)
-			{
-				case IscCodes.SQL_SHORT:
-					Write((short)numeric);
-					break;
-
-				case IscCodes.SQL_LONG:
-					Write((int)numeric);
-					break;
-
-				case IscCodes.SQL_QUAD:
-				case IscCodes.SQL_INT64:
-					Write((long)numeric);
-					break;
-
-				case IscCodes.SQL_DOUBLE:
-				case IscCodes.SQL_D_FLOAT:
-					Write((double)value);
-					break;
-			}
-		}
-
-		public void Write(bool value)
-		{
-			WriteOpaque(TypeEncoder.EncodeBoolean(value));
-		}
-
-		public void Write(DateTime value)
-		{
-			WriteDate(value);
-			WriteTime(TypeHelper.DateTimeToTimeSpan(value));
-		}
-
-		public void WriteDate(DateTime value)
-		{
-			Write(TypeEncoder.EncodeDate(Convert.ToDateTime(value)));
-		}
-
-		public void WriteTime(TimeSpan value)
-		{
-			Write(TypeEncoder.EncodeTime(value));
-		}
+		public void Write(string value) => _outputWriter.Write(value);
+		public void Write(short value) => _outputWriter.Write(value);
+		public void Write(int value) => _outputWriter.Write(value);
+		public void Write(long value) => _outputWriter.Write(value);
+		public void Write(float value) => _outputWriter.Write(value);
+		public void Write(double value) => _outputWriter.Write(value);
+		public void Write(decimal value, int type, int scale) => _outputWriter.Write(value, type, scale);
+		public void Write(bool value) => _outputWriter.Write(value);
+		public void Write(DateTime value) => _outputWriter.Write(value);
+		public void WriteDate(DateTime value) => _outputWriter.WriteDate(value);
+		public void WriteTime(TimeSpan value) => _outputWriter.WriteTime(value);
 
 		#endregion
 
@@ -716,6 +605,170 @@ namespace FirebirdSql.Data.Client.Managed
 		}
 
 	}
+
+	internal class XdrBinaryWriter
+	{
+		private readonly Stream _stream;
+		private readonly Charset _charset;
+		private readonly byte[] _innerBuffer = new byte[128];
+		private static readonly byte[] _pad = new byte[4];
+		private static byte[] _fill;
+
+		private static byte[] Fill
+		{
+			get
+			{
+				var f = _fill;
+				if (f == null)
+				{
+					f = new byte[32767];
+					for (int i = 0; i < f.Length; i++)
+					{
+						f[i] = 32;
+					}
+					_fill = f;
+				}
+
+				return f;
+			}
+		}
+
+		private void WritePadding(int length)
+		{
+			var padLen = (4 - length) & 3;
+			if (padLen > 0)
+				Write(_pad, 0, padLen);
+		}
+
+		public XdrBinaryWriter(Stream stream, Charset charset)
+		{
+			_stream = stream;
+			_charset = charset;
+		}
+
+		public Stream BaseStream => _stream;
+
+		public void Write(byte[] buffer, int offset, int count) => _stream.Write(buffer, offset, count);
+
+		private byte[] InternalGetBuffer(int count)
+		{
+			return count > _innerBuffer.Length ? new byte[count] : _innerBuffer;
+		}
+
+		public void WriteBuffer(byte[] buffer, int length)
+		{
+			Write(length);
+			if (buffer != null && length > 0)
+			{
+				Write(buffer, 0, length);
+				WritePadding(length);
+			}
+		}
+
+		public void WriteOpaque(byte[] buffer) => WriteOpaque(buffer, buffer.Length);
+		public void WriteOpaque(byte[] buffer, int length)
+		{
+			if (buffer != null && length > 0)
+			{
+				Write(buffer, 0, buffer.Length);
+				Write(Fill, 0, length - buffer.Length);
+				WritePadding(length);
+			}
+		}
+
+		public void Write(byte value)
+		{
+			_stream.WriteByte(value);
+		}
+		public void Write(short value)
+		{
+			Write((int)value);
+		}
+
+		public void Write(int value)
+		{
+			value = IPAddress.NetworkToHostOrder(value);
+
+			_innerBuffer[0] = (byte)value;
+			_innerBuffer[1] = (byte)(value >> 8);
+			_innerBuffer[2] = (byte)(value >> 16);
+			_innerBuffer[3] = (byte)(value >> 24);
+			Write(_innerBuffer, 0, 4);
+		}
+
+		public void Write(long value)
+		{
+			value = IPAddress.NetworkToHostOrder(value);
+
+			_innerBuffer[0] = (byte)value;
+			_innerBuffer[1] = (byte)(value >> 8);
+			_innerBuffer[2] = (byte)(value >> 16);
+			_innerBuffer[3] = (byte)(value >> 24);
+			_innerBuffer[4] = (byte)(value >> 32);
+			_innerBuffer[5] = (byte)(value >> 40);
+			_innerBuffer[6] = (byte)(value >> 48);
+			_innerBuffer[7] = (byte)(value >> 56);
+			Write(_innerBuffer, 0, 8);
+		}
+
+		public void Write(float value)
+		{
+			var buffer = BitConverter.GetBytes(value);
+			Write(BitConverter.ToInt32(buffer, 0));
+		}
+
+		public void Write(double value)
+		{
+			Write(BitConverter.DoubleToInt64Bits(value));
+		}
+
+		public void Write(decimal value, int type, int scale)
+		{
+			object numeric = TypeEncoder.EncodeDecimal(value, scale, type);
+			switch (type & ~1)
+			{
+				case IscCodes.SQL_SHORT:
+					Write((short)numeric);
+					break;
+
+				case IscCodes.SQL_LONG:
+					Write((int)numeric);
+					break;
+
+				case IscCodes.SQL_QUAD:
+				case IscCodes.SQL_INT64:
+					Write((long)numeric);
+					break;
+
+				case IscCodes.SQL_DOUBLE:
+				case IscCodes.SQL_D_FLOAT:
+					Write((double)value);
+					break;
+			}
+		}
+
+		public void Write(string value) => Write(value, _charset);
+		public void Write(string value, Charset charset)
+		{
+			var count = charset.GetBytesCount(value);
+			Write(count);
+			var buff = InternalGetBuffer(count);
+			charset.GetBytes(value, 0, value.Length, buff, 0);
+			Write(buff, 0, count);
+			WritePadding(count);
+		}
+
+		public void WriteDate(DateTime value) => Write(TypeEncoder.EncodeDate(value));
+		public void WriteTime(TimeSpan value) => Write(TypeEncoder.EncodeTime(value));
+		public void Write(DateTime value)
+		{
+			WriteDate(value);
+			WriteTime(TypeHelper.DateTimeToTimeSpan(value));
+		}
+
+		public void Write(bool value) => WriteOpaque(TypeEncoder.EncodeBoolean(value));
+	}
+
 
 	internal class DecompressionStream: Stream
 	{
