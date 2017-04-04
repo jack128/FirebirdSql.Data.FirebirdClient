@@ -164,15 +164,8 @@ namespace FirebirdSql.Data.Client.Managed
 			CheckDisposed();
 
 			var ms = (MemoryStream) _outputWriter.BaseStream;
-#if NET40 || NET45
-			var buffer = new ArraySegment<byte>(ms.GetBuffer(), 0, (int)ms.Length);
-#else
-			ArraySegment<byte> buffer;
-			if (!(ms.TryGetBuffer(out buffer)))
-			{
-				buffer = new ArraySegment<byte>(ms.ToArray(), 0, (int)ms.Length);
-			}
-#endif
+
+			var buffer = ms.ToArraySegment();
 			try
 			{
 				if (_compression)
@@ -247,17 +240,6 @@ namespace FirebirdSql.Data.Client.Managed
 			CheckDisposed();
 			EnsureWritable();
 			_outputWriter.Write(buffer, offset, count);
-		}
-
-		public byte[] ToArray()
-		{
-			CheckDisposed();
-
-			var memoryStream = _innerStream as MemoryStream;
-			if (memoryStream == null)
-				throw new InvalidOperationException();
-			Flush();
-			return memoryStream.ToArray();
 		}
 
 		#endregion
@@ -336,6 +318,7 @@ namespace FirebirdSql.Data.Client.Managed
 		public void WriteOpaque(byte[] buffer) => _outputWriter.WriteOpaque(buffer);
 		public void WriteOpaque(byte[] buffer, int length) => _outputWriter.WriteOpaque(buffer, length);
 		public void WriteBuffer(byte[] buffer) => _outputWriter.WriteBuffer(buffer);
+		public void WriteBuffer(ArraySegment<byte> buffer) => _outputWriter.WriteBuffer(buffer);
 		public void WriteBuffer(byte[] buffer, int length) => _outputWriter.WriteBuffer(buffer, length);
 
 		public void WriteBlobBuffer(byte[] buffer)
@@ -370,6 +353,7 @@ namespace FirebirdSql.Data.Client.Managed
 			Write(Pad, 0, ((4 - length) & 3));
 		}
 
+		public void Write(ArraySegment<byte> buffer) => _outputWriter.Write(buffer);
 		public void Write(string value) => _outputWriter.Write(value);
 		public void Write(short value) => _outputWriter.Write(value);
 		public void Write(int value) => _outputWriter.Write(value);
@@ -649,20 +633,28 @@ namespace FirebirdSql.Data.Client.Managed
 
 		public Stream BaseStream => _stream;
 
-		public void Write(byte[] buffer, int offset, int count) => _stream.Write(buffer, offset, count);
+		public void Write(byte[] buffer, int offset, int count)
+		{
+			if (buffer == null) return;
+			_stream.Write(buffer, offset, count);
+		}
+
+		public void Write(ArraySegment<byte> buffer) => Write(buffer.Array, buffer.Offset, buffer.Count);
 
 		private byte[] InternalGetBuffer(int count)
 		{
 			return count > _innerBuffer.Length ? new byte[count] : _innerBuffer;
 		}
 
-		public void WriteBuffer(byte[] buffer) => WriteBuffer(buffer, buffer == null ? 0 : buffer.Length);
-		public void WriteBuffer(byte[] buffer, int length)
+		public void WriteBuffer(ArraySegment<byte> buffer) => WriteBuffer(buffer.Array, buffer.Offset, buffer.Count);
+		public void WriteBuffer(byte[] buffer) => WriteBuffer(buffer, 0, buffer == null ? 0 : buffer.Length);
+		public void WriteBuffer(byte[] buffer, int length) => WriteBuffer(buffer, 0, length);
+		public void WriteBuffer(byte[] buffer, int offset, int length)
 		{
 			Write(length);
 			if (buffer != null && length > 0)
 			{
-				Write(buffer, 0, length);
+				Write(buffer, offset, length);
 				WritePadding(length);
 			}
 		}

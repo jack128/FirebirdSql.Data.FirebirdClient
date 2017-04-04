@@ -42,10 +42,10 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 
 		#region Overriden Methods
 
-		protected override byte[] WriteParameters()
+		protected override ArraySegment<byte> WriteParameters()
 		{
 			if (_parameters == null)
-				return null;
+				return new ArraySegment<byte>();
 
 			using (var stream = new MemoryStream())
 			{
@@ -77,7 +77,7 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 						WriteRawParameter(xdr, field);
 					}
 
-					return stream.ToArray();
+					return stream.ToArraySegment();
 				}
 				catch (IOException ex)
 				{

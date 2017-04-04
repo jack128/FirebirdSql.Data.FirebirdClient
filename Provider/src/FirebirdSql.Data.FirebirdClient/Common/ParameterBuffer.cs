@@ -75,6 +75,8 @@ namespace FirebirdSql.Data.Common
 			return _stream.ToArray();
 		}
 
+		public ArraySegment<byte> ToArraySegment() => _stream.ToArraySegment();
+
 		#endregion
 
 		#region Protected Methods

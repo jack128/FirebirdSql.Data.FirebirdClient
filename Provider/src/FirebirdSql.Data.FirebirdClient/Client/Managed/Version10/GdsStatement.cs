@@ -605,7 +605,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				_database.XdrStream.WriteBuffer(_parameters.ToBlrArray());
 				_database.XdrStream.Write(0); // Message number
 				_database.XdrStream.Write(1); // Number of messages
-				_database.XdrStream.Write(descriptor, 0, descriptor.Length);
+				_database.XdrStream.Write(descriptor);
 			}
 			else
 			{
@@ -999,10 +999,10 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			_fields = null;
 		}
 
-		protected virtual byte[] WriteParameters()
+		protected virtual ArraySegment<byte> WriteParameters()
 		{
 			if (_parameters == null)
-				return null;
+				return new ArraySegment<byte>();
 
 			using (var stream = new MemoryStream())
 			{
@@ -1021,7 +1021,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 					}
 				}
 
-				return stream.ToArray();
+				return stream.ToArraySegment();
 			}
 		}
 
