@@ -305,16 +305,17 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 					if (isVariying)
 					{
-						using (XdrStream xdr = new XdrStream())
+						using (var stream = new MemoryStream())
 						{
+							var writer = new XdrBinaryWriter(stream);
 							for (int i = 0; i < elements; i++)
 							{
 								byte[] buffer = _database.XdrStream.ReadOpaque(_database.XdrStream.ReadInt32());
 
-								xdr.WriteBuffer(buffer, buffer.Length);
+								writer.WriteBuffer(buffer, buffer.Length);
 							}
 
-							return xdr.ToArray();
+							return stream.ToArray();
 						}
 					}
 					else
@@ -343,8 +344,9 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			int subType = (Descriptor.Scale < 0) ? 2 : 0;
 			int type = 0;
 
-			using (XdrStream xdr = new XdrStream(_database.Charset))
+			using (var stream = new MemoryStream())
 			{
+				var xdr = new XdrBinaryWriter(stream, _database.Charset);
 				type = TypeHelper.GetSqlTypeFromBlrType(Descriptor.DataType);
 				dbType = TypeHelper.GetDbDataTypeFromBlrType(Descriptor.DataType, subType, Descriptor.Scale);
 
@@ -403,7 +405,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 					}
 				}
 
-				return xdr.ToArray();
+				return stream.ToArray();
 			}
 		}
 

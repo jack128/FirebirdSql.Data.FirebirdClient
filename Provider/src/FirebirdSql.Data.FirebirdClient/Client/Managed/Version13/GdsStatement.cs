@@ -47,8 +47,9 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 			if (_parameters == null)
 				return null;
 
-			using (var xdr = new XdrStream(_database.Charset))
+			using (var stream = new MemoryStream())
 			{
+				var xdr = new XdrBinaryWriter(stream, _database.Charset);
 				try
 				{
 					var bits = new BitArray(_parameters.Count);
@@ -76,7 +77,7 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 						WriteRawParameter(xdr, field);
 					}
 
-					return xdr.ToArray();
+					return stream.ToArray();
 				}
 				catch (IOException ex)
 				{

@@ -128,7 +128,7 @@ namespace FirebirdSql.Data.Client.Managed
 				streamWrapper = new DecompressionStream(_innerStream, PreferredBufferSize, 1024 * 1024);
 			else if (!(_innerStream is MemoryStream))
 				streamWrapper = new BufferedStream(_innerStream, PreferredBufferSize);
-			//_inputReader = new BinaryReader(streamWrapper);
+
 			_inputReader = new XdrBinaryReader(streamWrapper, _charset);
 			_outputWriter = new XdrBinaryWriter(new MemoryStream(), _charset);
 			ResetOperation();
@@ -335,7 +335,7 @@ namespace FirebirdSql.Data.Client.Managed
 
 		public void WriteOpaque(byte[] buffer) => _outputWriter.WriteOpaque(buffer);
 		public void WriteOpaque(byte[] buffer, int length) => _outputWriter.WriteOpaque(buffer, length);
-		public void WriteBuffer(byte[] buffer) => WriteBuffer(buffer, buffer == null ? 0 : buffer.Length);
+		public void WriteBuffer(byte[] buffer) => _outputWriter.WriteBuffer(buffer);
 		public void WriteBuffer(byte[] buffer, int length) => _outputWriter.WriteBuffer(buffer, length);
 
 		public void WriteBlobBuffer(byte[] buffer)
@@ -640,6 +640,7 @@ namespace FirebirdSql.Data.Client.Managed
 				Write(_pad, 0, padLen);
 		}
 
+		public XdrBinaryWriter(Stream stream): this(stream, Charset.DefaultCharset) { }
 		public XdrBinaryWriter(Stream stream, Charset charset)
 		{
 			_stream = stream;
@@ -655,6 +656,7 @@ namespace FirebirdSql.Data.Client.Managed
 			return count > _innerBuffer.Length ? new byte[count] : _innerBuffer;
 		}
 
+		public void WriteBuffer(byte[] buffer) => WriteBuffer(buffer, buffer == null ? 0 : buffer.Length);
 		public void WriteBuffer(byte[] buffer, int length)
 		{
 			Write(length);

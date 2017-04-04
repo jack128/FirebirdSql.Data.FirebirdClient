@@ -799,7 +799,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
-		protected void WriteRawParameter(XdrStream xdr, DbField field)
+		protected void WriteRawParameter(XdrBinaryWriter xdr, DbField field)
 		{
 			if (field.DbDataType != DbDataType.Null)
 			{
@@ -1004,8 +1004,9 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			if (_parameters == null)
 				return null;
 
-			using (var xdr = new XdrStream(_database.Charset))
+			using (var stream = new MemoryStream())
 			{
+				var xdr = new XdrBinaryWriter(stream, _database.Charset);
 				for (var i = 0; i < _parameters.Count; i++)
 				{
 					var field = _parameters[i];
@@ -1020,7 +1021,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 					}
 				}
 
-				return xdr.ToArray();
+				return stream.ToArray();
 			}
 		}
 
