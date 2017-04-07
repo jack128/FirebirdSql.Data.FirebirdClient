@@ -130,7 +130,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 					{
 						_database.XdrStream.Write(IscCodes.op_transaction);
 						_database.XdrStream.Write(_database.Handle);
-						_database.XdrStream.WriteBuffer(tpb.ToArray());
+						_database.XdrStream.WriteBuffer(tpb.ToArraySegment());
 						_database.XdrStream.Flush();
 
 						response = _database.ReadGenericResponse();
@@ -167,7 +167,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 						_database.TransactionCount--;
 					}
 
-					Update?.Invoke(this, new EventArgs());
+					Update?.Invoke(this, EventArgs.Empty);
 
 					_state = TransactionState.NoTransaction;
 				}

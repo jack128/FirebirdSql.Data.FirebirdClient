@@ -37,10 +37,7 @@ namespace FirebirdSql.Data.Common
 
 		#region Properties
 
-		public short Length
-		{
-			get { return (short)ToArray().Length; }
-		}
+		public short Length => (short)_stream.Length;
 
 		#endregion
 
