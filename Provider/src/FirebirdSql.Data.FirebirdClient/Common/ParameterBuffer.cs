@@ -30,7 +30,7 @@ namespace FirebirdSql.Data.Common
 	{
 		private MemoryStream _stream;
 
-		public short Length => (short)ToArray().Length;
+		public short Length => (short)_stream.Length;
 		protected bool IsLittleEndian { get; }
 
 		protected ParameterBuffer(bool isLittleEndian)
@@ -47,6 +47,11 @@ namespace FirebirdSql.Data.Common
 		public byte[] ToArray()
 		{
 			return _stream.ToArray();
+		}
+
+		public ArraySegment<byte> ToArraySegment()
+		{
+			return _stream.ToArraySegment();
 		}
 
 		protected void WriteByte(int value)

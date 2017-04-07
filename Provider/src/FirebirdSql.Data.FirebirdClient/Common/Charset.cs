@@ -223,6 +223,11 @@ namespace FirebirdSql.Data.Common
 
 		#region Methods
 
+		public int GetBytesCount(string s)
+		{
+			return _encoding.GetByteCount(s);
+		}
+
 		public byte[] GetBytes(string s)
 		{
 			return _encoding.GetBytes(s);

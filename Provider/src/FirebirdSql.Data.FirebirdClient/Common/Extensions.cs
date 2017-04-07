@@ -114,5 +114,19 @@ namespace FirebirdSql.Data.Common
 		{
 			return BitConverter.ToString(b).Replace("-", string.Empty);
 		}
+
+		public static ArraySegment<byte> ToArraySegment(this MemoryStream stream)
+		{
+#if NET40 || NET45
+			return new ArraySegment<byte>(stream.GetBuffer(), 0, (int)stream.Length);
+#else
+			ArraySegment<byte> result;
+			if (!(stream.TryGetBuffer(out buffer)))
+			{
+				result = new ArraySegment<byte>(stream.ToArray(), 0, (int)stream.Length);
+			}
+			return result;
+#endif
+		}
 	}
 }

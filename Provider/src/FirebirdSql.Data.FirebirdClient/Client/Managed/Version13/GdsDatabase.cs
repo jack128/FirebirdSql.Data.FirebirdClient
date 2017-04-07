@@ -47,7 +47,7 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 			}
 			dpb.Append(IscCodes.isc_dpb_utf8_filename, 0);
 			XdrStream.WriteBuffer(Encoding.UTF8.GetBytes(database));
-			XdrStream.WriteBuffer(dpb.ToArray());
+			XdrStream.WriteBuffer(dpb.ToArraySegment());
 		}
 
 		protected override void SendCreateToBuffer(DatabaseParameterBuffer dpb, string database)
@@ -60,7 +60,7 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 			}
 			dpb.Append(IscCodes.isc_dpb_utf8_filename, 0);
 			XdrStream.WriteBuffer(Encoding.UTF8.GetBytes(database));
-			XdrStream.WriteBuffer(dpb.ToArray());
+			XdrStream.WriteBuffer(dpb.ToArraySegment());
 		}
 
 		public override void AttachWithTrustedAuth(DatabaseParameterBuffer dpb, string dataSource, int port, string database)

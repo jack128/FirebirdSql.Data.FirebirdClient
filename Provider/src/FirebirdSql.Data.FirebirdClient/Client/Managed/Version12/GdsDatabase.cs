@@ -46,7 +46,7 @@ namespace FirebirdSql.Data.Client.Managed.Version12
 			}
 			dpb.Append(IscCodes.isc_dpb_utf8_filename, 0);
 			XdrStream.WriteBuffer(Encoding.UTF8.GetBytes(database));
-			XdrStream.WriteBuffer(dpb.ToArray());
+			XdrStream.WriteBuffer(dpb.ToArraySegment());
 		}
 
 		protected override void SendCreateToBuffer(DatabaseParameterBuffer dpb, string database)
@@ -59,7 +59,7 @@ namespace FirebirdSql.Data.Client.Managed.Version12
 			}
 			dpb.Append(IscCodes.isc_dpb_utf8_filename, 0);
 			XdrStream.WriteBuffer(Encoding.UTF8.GetBytes(database));
-			XdrStream.WriteBuffer(dpb.ToArray());
+			XdrStream.WriteBuffer(dpb.ToArraySegment());
 		}
 
 		#region Override Statement Creation Methods

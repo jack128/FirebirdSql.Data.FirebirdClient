@@ -197,7 +197,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				dpb.Append(IscCodes.isc_dpb_password, Password);
 			}
 			XdrStream.WriteBuffer(Encoding.UTF8.GetBytes(database));
-			XdrStream.WriteBuffer(dpb.ToArray());
+			XdrStream.WriteBuffer(dpb.ToArraySegment());
 		}
 
 		protected virtual void ProcessAttachResponse(GenericResponse response)
@@ -316,7 +316,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				dpb.Append(IscCodes.isc_dpb_password, Password);
 			}
 			XdrStream.WriteBuffer(Encoding.UTF8.GetBytes(database));
-			XdrStream.WriteBuffer(dpb.ToArray());
+			XdrStream.WriteBuffer(dpb.ToArraySegment());
 		}
 
 		protected void ProcessCreateResponse(GenericResponse response)
@@ -452,7 +452,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 				XdrStream.Write(IscCodes.op_que_events);
 				XdrStream.Write(_handle);
-				XdrStream.WriteBuffer(epb.ToArray());
+				XdrStream.WriteBuffer(epb.ToArraySegment());
 				XdrStream.Write(AddressOfAstRoutine);
 				XdrStream.Write(ArgumentToAstRoutine);
 				XdrStream.Write(events.LocalId);

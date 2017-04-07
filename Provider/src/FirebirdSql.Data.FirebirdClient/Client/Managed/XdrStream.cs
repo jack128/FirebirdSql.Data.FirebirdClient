@@ -26,6 +26,7 @@ using System.Globalization;
 using System.Linq;
 using FirebirdSql.Data.Common;
 using System.Collections.Generic;
+using Ionic.Zlib;
 
 namespace FirebirdSql.Data.Client.Managed
 {
@@ -39,29 +40,11 @@ namespace FirebirdSql.Data.Client.Managed
 
 		#region Static Fields
 
-		private static byte[] fill;
 		private static byte[] pad;
 
 		#endregion
 
 		#region Static Properties
-
-		internal static byte[] Fill
-		{
-			get
-			{
-				if (fill == null)
-				{
-					fill = new byte[32767];
-					for (int i = 0; i < fill.Length; i++)
-					{
-						fill[i] = 32;
-					}
-				}
-
-				return fill;
-			}
-		}
 
 		private static byte[] Pad
 		{
@@ -74,14 +57,14 @@ namespace FirebirdSql.Data.Client.Managed
 
 		private Stream _innerStream;
 		private Charset _charset;
-		private bool _compression;
+		private readonly bool _compression;
 		private bool _ownsStream;
 
-		private long _position;
-		private List<byte> _outputBuffer;
-		private List<byte> _inputBuffer;
+		private XdrBinaryWriter _outputWriter;
+		// do not dispose reader to prevent unconditional dispose of _innerStream
+		private XdrBinaryReader _inputReader;
+
 		private Ionic.Zlib.ZlibCodec _deflate;
-		private Ionic.Zlib.ZlibCodec _inflate;
 		private byte[] _compressionBuffer;
 
 		private int _operation;
@@ -107,7 +90,7 @@ namespace FirebirdSql.Data.Client.Managed
 
 		public override long Position
 		{
-			get { return _position; }
+			get { return _inputReader.BaseStream.Position; }
 			set { throw new NotSupportedException(); }
 		}
 
@@ -140,16 +123,14 @@ namespace FirebirdSql.Data.Client.Managed
 			_compression = compression;
 			_ownsStream = ownsStream;
 
-			_position = 0;
-			_outputBuffer = new List<byte>(PreferredBufferSize);
-			_inputBuffer = new List<byte>(PreferredBufferSize);
-			if (_compression)
-			{
-				_deflate = new Ionic.Zlib.ZlibCodec(Ionic.Zlib.CompressionMode.Compress);
-				_inflate = new Ionic.Zlib.ZlibCodec(Ionic.Zlib.CompressionMode.Decompress);
-				_compressionBuffer = new byte[1024 * 1024];
-			}
+			var streamWrapper = _innerStream;
+			if (compression)
+				streamWrapper = new DecompressionStream(_innerStream, PreferredBufferSize, 1024 * 1024);
+			else if (!(_innerStream is MemoryStream))
+				streamWrapper = new BufferedStream(_innerStream, PreferredBufferSize);
 
+			_inputReader = new XdrBinaryReader(streamWrapper, _charset);
+			_outputWriter = new XdrBinaryWriter(new MemoryStream(), _charset);
 			ResetOperation();
 		}
 
@@ -174,27 +155,37 @@ namespace FirebirdSql.Data.Client.Managed
 		{
 			CheckDisposed();
 
-			var buffer = _outputBuffer.ToArray();
-			_outputBuffer.Clear();
-			var count = buffer.Length;
-			if (_compression)
+			var ms = (MemoryStream) _outputWriter.BaseStream;
+
+			var buffer = ms.ToArraySegment();
+			try
 			{
-				_deflate.OutputBuffer = _compressionBuffer;
-				_deflate.AvailableBytesOut = _compressionBuffer.Length;
-				_deflate.NextOut = 0;
-				_deflate.InputBuffer = buffer;
-				_deflate.AvailableBytesIn = buffer.Length;
-				_deflate.NextIn = 0;
-				var rc = _deflate.Deflate(Ionic.Zlib.FlushType.Sync);
-				if (rc != Ionic.Zlib.ZlibConstants.Z_OK)
-					throw new IOException($"Error '{rc}' while compressing the data.");
-				if (_deflate.AvailableBytesIn != 0)
-					throw new IOException("Compression buffer too small.");
-				buffer = _compressionBuffer;
-				count = _deflate.NextOut;
+				if (_compression)
+				{
+					if (_deflate == null) _deflate = new Ionic.Zlib.ZlibCodec(Ionic.Zlib.CompressionMode.Compress);
+					if (_compressionBuffer == null) _compressionBuffer = new byte[1024*1024];
+
+					_deflate.OutputBuffer = _compressionBuffer;
+					_deflate.AvailableBytesOut = _compressionBuffer.Length;
+					_deflate.NextOut = 0;
+					_deflate.InputBuffer = buffer.Array;
+					_deflate.AvailableBytesIn = buffer.Count;
+					_deflate.NextIn = 0;
+					var rc = _deflate.Deflate(Ionic.Zlib.FlushType.Sync);
+					if (rc != Ionic.Zlib.ZlibConstants.Z_OK)
+						throw new IOException($"Error '{rc}' while compressing the data.");
+					if (_deflate.AvailableBytesIn != 0)
+						throw new IOException("Compression buffer too small.");
+					buffer = new ArraySegment<byte>(_compressionBuffer, 0, _deflate.NextOut);
+				}
+				_innerStream.Write(buffer.Array, buffer.Offset, buffer.Count);
+				_innerStream.Flush();
+				_inputReader.BaseStream.Flush();
 			}
-			_innerStream.Write(buffer, 0, count);
-			_innerStream.Flush();
+			finally
+			{
+				_outputWriter.BaseStream.SetLength(0);
+			}
 		}
 
 		public override void SetLength(long length)
@@ -223,37 +214,9 @@ namespace FirebirdSql.Data.Client.Managed
 		{
 			CheckDisposed();
 			EnsureReadable();
+			if (count == 0) return 0;
 
-			if (_inputBuffer.Count < count)
-			{
-				var readBuffer = new byte[PreferredBufferSize];
-				var read = _innerStream.Read(readBuffer, 0, readBuffer.Length);
-				if (read != 0)
-				{
-					if (_compression)
-					{
-						_inflate.OutputBuffer = _compressionBuffer;
-						_inflate.AvailableBytesOut = _compressionBuffer.Length;
-						_inflate.NextOut = 0;
-						_inflate.InputBuffer = readBuffer;
-						_inflate.AvailableBytesIn = read;
-						_inflate.NextIn = 0;
-						var rc = _inflate.Inflate(Ionic.Zlib.FlushType.None);
-						if (rc != Ionic.Zlib.ZlibConstants.Z_OK)
-							throw new IOException($"Error '{rc}' while decompressing the data.");
-						if (_inflate.AvailableBytesIn != 0)
-							throw new IOException("Decompression buffer too small.");
-						readBuffer = _compressionBuffer;
-						read = _inflate.NextOut;
-					}
-					_inputBuffer.AddRange(readBuffer.Take(read));
-				}
-			}
-			var data = _inputBuffer.Take(count).ToArray();
-			_inputBuffer.RemoveRange(0, data.Length);
-			Array.Copy(data, 0, buffer, offset, data.Length);
-			_position += data.Length;
-			return data.Length;
+			return _inputReader.Read(buffer, offset, count);
 		}
 
 		public override void WriteByte(byte value)
@@ -261,26 +224,14 @@ namespace FirebirdSql.Data.Client.Managed
 			CheckDisposed();
 			EnsureWritable();
 
-			_outputBuffer.Add(value);
+			_outputWriter.Write(value);
 		}
 
 		public override void Write(byte[] buffer, int offset, int count)
 		{
 			CheckDisposed();
 			EnsureWritable();
-
-			_outputBuffer.AddRange(buffer.Skip(offset).Take(count));
-		}
-
-		public byte[] ToArray()
-		{
-			CheckDisposed();
-
-			var memoryStream = _innerStream as MemoryStream;
-			if (memoryStream == null)
-				throw new InvalidOperationException();
-			Flush();
-			return memoryStream.ToArray();
+			_outputWriter.Write(buffer, offset, count);
 		}
 
 		#endregion
@@ -324,107 +275,214 @@ namespace FirebirdSql.Data.Client.Managed
 
 		#region XDR Read Methods
 
-		public byte[] ReadBytes(int count)
+		public byte[] ReadBytes(int count) => _inputReader.ReadBytes(count);
+		public byte[] ReadOpaque(int length) => _inputReader.ReadOpaque(length);
+		public byte[] ReadBuffer() => _inputReader.ReadBuffer();
+
+		public string ReadString() => _inputReader.ReadString();
+		public string ReadString(int length) => _inputReader.ReadString(length);
+		public string ReadString(Charset charset) => _inputReader.ReadString(charset);
+		public string ReadString(Charset charset, int length) => _inputReader.ReadString(charset, length);
+
+		public short ReadInt16() => _inputReader.ReadInt16();
+		public int ReadInt32() => _inputReader.ReadInt32();
+		public long ReadInt64() => _inputReader.ReadInt64();
+
+		public Guid ReadGuid(int length) => _inputReader.ReadGuid();
+
+		public float ReadSingle() => _inputReader.ReadSingle();
+		public double ReadDouble() => _inputReader.ReadDouble();
+
+		public DateTime ReadDateTime() => _inputReader.ReadDateTime();
+		public DateTime ReadDate() => _inputReader.ReadDate();
+		public TimeSpan ReadTime() => _inputReader.ReadTime();
+
+		public decimal ReadDecimal(int type, int scale) => _inputReader.ReadDecimal(type, scale);
+		public bool ReadBoolean() => _inputReader.ReadBoolean();
+		public IscException ReadStatusVector() => _inputReader.ReadStatusVector();
+
+		public void Skip(int count) => _inputReader.Skip(count);
+
+		#endregion
+
+		#region XDR Write Methods
+
+		public void WriteOpaque(byte[] buffer) => _outputWriter.WriteOpaque(buffer);
+		public void WriteOpaque(byte[] buffer, int length) => _outputWriter.WriteOpaque(buffer, length);
+		public void WriteBuffer(byte[] buffer) => _outputWriter.WriteBuffer(buffer);
+		public void WriteBuffer(ArraySegment<byte> buffer) => _outputWriter.WriteBuffer(buffer);
+		public void WriteBuffer(byte[] buffer, int length) => _outputWriter.WriteBuffer(buffer, length);
+
+		public void WriteBlobBuffer(byte[] buffer)
 		{
-			var buffer = new byte[count];
-			if (count > 0)
-			{
-				var toRead = count;
-				var currentlyRead = -1;
-				while (toRead > 0 && currentlyRead != 0)
-				{
-					toRead -= (currentlyRead = Read(buffer, count - toRead, toRead));
-				}
-				if (toRead == count)
-				{
-					throw new IOException();
-				}
-			}
-			return buffer;
+			var length = buffer.Length; // 2 for short for buffer length
+			if (length > short.MaxValue)
+				throw new IOException();
+			Write(length + 2);
+			Write(length + 2);  //bizarre but true! three copies of the length
+			WriteByte((byte)((length >> 0) & 0xff));
+			WriteByte((byte)((length >> 8) & 0xff));
+			Write(buffer, 0, length);
+			Write(Pad, 0, ((4 - length + 2) & 3));
 		}
 
-		public byte[] ReadOpaque(int length)
+		public void WriteTyped(int type, byte[] buffer)
 		{
-			var buffer = ReadBytes(length);
-			var padLength = ((4 - length) & 3);
-			if (padLength > 0)
+			int length;
+			if (buffer == null)
 			{
-				Read(Pad, 0, padLength);
+				Write(1);
+				WriteByte((byte)type);
+				length = 1;
 			}
-			return buffer;
+			else
+			{
+				length = buffer.Length + 1;
+				Write(length);
+				WriteByte((byte)type);
+				Write(buffer, 0, buffer.Length);
+			}
+			Write(Pad, 0, ((4 - length) & 3));
+		}
+
+		public void Write(ArraySegment<byte> buffer) => _outputWriter.Write(buffer);
+		public void Write(string value) => _outputWriter.Write(value);
+		public void Write(short value) => _outputWriter.Write(value);
+		public void Write(int value) => _outputWriter.Write(value);
+		public void Write(long value) => _outputWriter.Write(value);
+		public void Write(float value) => _outputWriter.Write(value);
+		public void Write(double value) => _outputWriter.Write(value);
+		public void Write(decimal value, int type, int scale) => _outputWriter.Write(value, type, scale);
+		public void Write(bool value) => _outputWriter.Write(value);
+		public void Write(DateTime value) => _outputWriter.Write(value);
+		public void WriteDate(DateTime value) => _outputWriter.WriteDate(value);
+		public void WriteTime(TimeSpan value) => _outputWriter.WriteTime(value);
+
+		#endregion
+
+		#region Private Methods
+
+		private void CheckDisposed()
+		{
+			if (_innerStream == null)
+				throw new ObjectDisposedException($"The {nameof(XdrStream)} is closed.");
+		}
+
+		private void EnsureWritable()
+		{
+			if (!CanWrite)
+				throw new InvalidOperationException("Write operations are not allowed by this stream.");
+		}
+
+		private void EnsureReadable()
+		{
+			if (!CanRead)
+				throw new InvalidOperationException("Read operations are not allowed by this stream.");
+		}
+
+		#endregion
+
+		#region Private Properties
+
+		private bool ValidOperationAvailable
+		{
+			get { return _operation >= 0; }
+		}
+
+		#endregion
+	}
+
+	internal class XdrBinaryReader
+	{
+		private readonly Stream _stream;
+		private readonly Charset _charset;
+		private readonly byte[] _innerBuffer = new byte[128];
+		private static readonly byte[] _pad = new byte[4];
+
+		public XdrBinaryReader(Stream stream, Charset charset)
+		{
+			_stream = stream;
+			_charset = charset;
+		}
+
+		public Stream BaseStream => _stream;
+
+		private byte[] InternalReadBuffer(int count, bool opaque = false)
+		{
+			var result = count > _innerBuffer.Length ? new byte[count] : _innerBuffer;
+			InternalReadBuffer(result, 0, count, opaque);
+			return result;
+		}
+
+
+		private void InternalReadBuffer(byte[] buffer, int offset, int count, bool opaque = false)
+		{
+			var needToRead = count;
+			while (needToRead > 0)
+			{
+				var readed = Read(buffer, offset, needToRead);
+				if (readed == 0)
+					throw new IOException();
+				needToRead -= readed;
+				offset += readed;
+			}
+
+			if (opaque)
+			{
+				var padLength = ((4 - count) & 3);
+				if (padLength > 0)
+				{
+					Read(_pad, 0, padLength);
+				}
+			}
+		}
+
+		public int Read(byte[] buffer, int offset, int count) => _stream.Read(buffer, offset, count);
+
+		public byte[] ReadBytes(int count)
+		{
+			var result = new byte[count];
+			InternalReadBuffer(result, 0, count);
+			return result;
 		}
 
 		public byte[] ReadBuffer()
 		{
-			return ReadOpaque((ushort)ReadInt32());
+			var result = new byte[(ushort) ReadInt32()];
+			InternalReadBuffer(result, 0, result.Length, opaque: true);
+			return result;
 		}
 
-		public string ReadString()
+		public byte[] ReadOpaque(int count)
 		{
-			return ReadString(_charset);
+			var result = new byte[count];
+			InternalReadBuffer(result, 0, count, opaque: true);
+			return result;
 		}
 
-		public string ReadString(int length)
-		{
-			return ReadString(_charset, length);
-		}
+		public int ReadInt32() => IPAddress.HostToNetworkOrder(BitConverter.ToInt32(InternalReadBuffer(4), 0));
+		public short ReadInt16() => Convert.ToInt16(ReadInt32());
+		public long ReadInt64() => IPAddress.HostToNetworkOrder(BitConverter.ToInt64(InternalReadBuffer(8), 0));
+		public double ReadDouble() => BitConverter.Int64BitsToDouble(ReadInt64());
+		public float ReadSingle() => BitConverter.ToSingle(BitConverter.GetBytes(ReadInt32()), 0);
 
-		public string ReadString(Charset charset)
-		{
-			return ReadString(charset, ReadInt32());
-		}
+		public string ReadString() => ReadString(_charset, ReadInt32());
+		public string ReadString(int length) => ReadString(_charset, length);
+		public string ReadString(Charset charset) => ReadString(charset, ReadInt32());
 
 		public string ReadString(Charset charset, int length)
 		{
-			var buffer = ReadOpaque(length);
-			return charset.GetString(buffer, 0, buffer.Length);
+			var buf = InternalReadBuffer(length, opaque: true);
+			return charset.GetString(buf, 0, length);
 		}
 
-		public short ReadInt16()
-		{
-			return Convert.ToInt16(ReadInt32());
-		}
-
-		public int ReadInt32()
-		{
-			return IPAddress.HostToNetworkOrder(BitConverter.ToInt32(ReadBytes(4), 0));
-		}
-
-		public long ReadInt64()
-		{
-			return IPAddress.HostToNetworkOrder(BitConverter.ToInt64(ReadBytes(8), 0));
-		}
-
-		public Guid ReadGuid(int length)
-		{
-			return new Guid(ReadOpaque(length));
-		}
-
-		public float ReadSingle()
-		{
-			return BitConverter.ToSingle(BitConverter.GetBytes(ReadInt32()), 0);
-		}
-
-		public double ReadDouble()
-		{
-			return BitConverter.ToDouble(BitConverter.GetBytes(ReadInt64()), 0);
-		}
-
+		public DateTime ReadDate() => TypeDecoder.DecodeDate(ReadInt32());
+		public TimeSpan ReadTime() => TypeDecoder.DecodeTime(ReadInt32());
 		public DateTime ReadDateTime()
 		{
-			DateTime date = ReadDate();
-			TimeSpan time = ReadTime();
+			var date = ReadDate();
+			var time = ReadTime();
 			return date.Add(time);
-		}
-
-		public DateTime ReadDate()
-		{
-			return TypeDecoder.DecodeDate(ReadInt32());
-		}
-
-		public TimeSpan ReadTime()
-		{
-			return TypeDecoder.DecodeTime(ReadInt32());
 		}
 
 		public decimal ReadDecimal(int type, int scale)
@@ -455,7 +513,24 @@ namespace FirebirdSql.Data.Client.Managed
 
 		public bool ReadBoolean()
 		{
-			return TypeDecoder.DecodeBoolean(ReadOpaque(1));
+			return TypeDecoder.DecodeBoolean(InternalReadBuffer(1, opaque: true));
+		}
+
+		public Guid ReadGuid()
+		{
+			var buff = new byte[16];
+			InternalReadBuffer(buff, 0, 16);
+			return new Guid(buff);
+		}
+
+		public void Skip(int count)
+		{
+			while (count > 0)
+			{
+				var toRead = count > _innerBuffer.Length ? _innerBuffer.Length : count;
+				InternalReadBuffer(_innerBuffer, 0, toRead);
+				count -= toRead;
+			}
 		}
 
 		public IscException ReadStatusVector()
@@ -505,78 +580,92 @@ namespace FirebirdSql.Data.Client.Managed
 			return exception;
 		}
 
-		#endregion
+	}
 
-		#region XDR Write Methods
+	internal class XdrBinaryWriter
+	{
+		private readonly Stream _stream;
+		private readonly Charset _charset;
+		private readonly byte[] _innerBuffer = new byte[128];
+		private static readonly byte[] _pad = new byte[4];
+		private static byte[] _fill;
 
-		public void WriteOpaque(byte[] buffer)
+		private static byte[] Fill
 		{
-			WriteOpaque(buffer, buffer.Length);
+			get
+			{
+				var f = _fill;
+				if (f == null)
+				{
+					f = new byte[32767];
+					for (int i = 0; i < f.Length; i++)
+					{
+						f[i] = 32;
+					}
+					_fill = f;
+				}
+
+				return f;
+			}
 		}
 
+		private void WritePadding(int length)
+		{
+			var padLen = (4 - length) & 3;
+			if (padLen > 0)
+				Write(_pad, 0, padLen);
+		}
+
+		public XdrBinaryWriter(Stream stream): this(stream, Charset.DefaultCharset) { }
+		public XdrBinaryWriter(Stream stream, Charset charset)
+		{
+			_stream = stream;
+			_charset = charset;
+		}
+
+		public Stream BaseStream => _stream;
+
+		public void Write(byte[] buffer, int offset, int count)
+		{
+			if (buffer == null) return;
+			_stream.Write(buffer, offset, count);
+		}
+
+		public void Write(ArraySegment<byte> buffer) => Write(buffer.Array, buffer.Offset, buffer.Count);
+
+		private byte[] InternalGetBuffer(int count)
+		{
+			return count > _innerBuffer.Length ? new byte[count] : _innerBuffer;
+		}
+
+		public void WriteBuffer(ArraySegment<byte> buffer) => WriteBuffer(buffer.Array, buffer.Offset, buffer.Count);
+		public void WriteBuffer(byte[] buffer) => WriteBuffer(buffer, 0, buffer == null ? 0 : buffer.Length);
+		public void WriteBuffer(byte[] buffer, int length) => WriteBuffer(buffer, 0, length);
+		public void WriteBuffer(byte[] buffer, int offset, int length)
+		{
+			Write(length);
+			if (buffer != null && length > 0)
+			{
+				Write(buffer, offset, length);
+				WritePadding(length);
+			}
+		}
+
+		public void WriteOpaque(byte[] buffer) => WriteOpaque(buffer, buffer.Length);
 		public void WriteOpaque(byte[] buffer, int length)
 		{
 			if (buffer != null && length > 0)
 			{
 				Write(buffer, 0, buffer.Length);
 				Write(Fill, 0, length - buffer.Length);
-				Write(Pad, 0, ((4 - length) & 3));
+				WritePadding(length);
 			}
 		}
 
-		public void WriteBuffer(byte[] buffer)
+		public void Write(byte value)
 		{
-			WriteBuffer(buffer, buffer == null ? 0 : buffer.Length);
+			_stream.WriteByte(value);
 		}
-
-		public void WriteBuffer(byte[] buffer, int length)
-		{
-			Write(length);
-			if (buffer != null && length > 0)
-			{
-				Write(buffer, 0, length);
-				Write(Pad, 0, ((4 - length) & 3));
-			}
-		}
-
-		public void WriteBlobBuffer(byte[] buffer)
-		{
-			var length = buffer.Length; // 2 for short for buffer length
-			if (length > short.MaxValue)
-				throw new IOException();
-			Write(length + 2);
-			Write(length + 2);  //bizarre but true! three copies of the length
-			WriteByte((byte)((length >> 0) & 0xff));
-			WriteByte((byte)((length >> 8) & 0xff));
-			Write(buffer, 0, length);
-			Write(Pad, 0, ((4 - length + 2) & 3));
-		}
-
-		public void WriteTyped(int type, byte[] buffer)
-		{
-			int length;
-			if (buffer == null)
-			{
-				Write(1);
-				WriteByte((byte)type);
-				length = 1;
-			}
-			else
-			{
-				length = buffer.Length + 1;
-				Write(length);
-				WriteByte((byte)type);
-				Write(buffer, 0, buffer.Length);
-			}
-			Write(Pad, 0, ((4 - length) & 3));
-		}
-
-		public void Write(string value)
-		{
-			byte[] buffer = _charset.GetBytes(value);
-			WriteBuffer(buffer, buffer.Length);
-		}
-
 		public void Write(short value)
 		{
 			Write((int)value);
@@ -584,12 +673,28 @@ namespace FirebirdSql.Data.Client.Managed
 
 		public void Write(int value)
 		{
-			Write(BitConverter.GetBytes(IPAddress.NetworkToHostOrder(value)), 0, 4);
+			value = IPAddress.NetworkToHostOrder(value);
+
+			_innerBuffer[0] = (byte)value;
+			_innerBuffer[1] = (byte)(value >> 8);
+			_innerBuffer[2] = (byte)(value >> 16);
+			_innerBuffer[3] = (byte)(value >> 24);
+			Write(_innerBuffer, 0, 4);
 		}
 
 		public void Write(long value)
 		{
-			Write(BitConverter.GetBytes(IPAddress.NetworkToHostOrder(value)), 0, 8);
+			value = IPAddress.NetworkToHostOrder(value);
+
+			_innerBuffer[0] = (byte)value;
+			_innerBuffer[1] = (byte)(value >> 8);
+			_innerBuffer[2] = (byte)(value >> 16);
+			_innerBuffer[3] = (byte)(value >> 24);
+			_innerBuffer[4] = (byte)(value >> 32);
+			_innerBuffer[5] = (byte)(value >> 40);
+			_innerBuffer[6] = (byte)(value >> 48);
+			_innerBuffer[7] = (byte)(value >> 56);
+			Write(_innerBuffer, 0, 8);
 		}
 
 		public void Write(float value)
@@ -600,8 +705,7 @@ namespace FirebirdSql.Data.Client.Managed
 
 		public void Write(double value)
 		{
-			var buffer = BitConverter.GetBytes(value);
-			Write(BitConverter.ToInt64(buffer, 0));
+			Write(BitConverter.DoubleToInt64Bits(value));
 		}
 
 		public void Write(decimal value, int type, int scale)
@@ -629,58 +733,130 @@ namespace FirebirdSql.Data.Client.Managed
 			}
 		}
 
-		public void Write(bool value)
+		public void Write(string value) => Write(value, _charset);
+		public void Write(string value, Charset charset)
 		{
-			WriteOpaque(TypeEncoder.EncodeBoolean(value));
+			var count = charset.GetBytesCount(value);
+			Write(count);
+			var buff = InternalGetBuffer(count);
+			charset.GetBytes(value, 0, value.Length, buff, 0);
+			Write(buff, 0, count);
+			WritePadding(count);
 		}
 
+		public void WriteDate(DateTime value) => Write(TypeEncoder.EncodeDate(value));
+		public void WriteTime(TimeSpan value) => Write(TypeEncoder.EncodeTime(value));
 		public void Write(DateTime value)
 		{
 			WriteDate(value);
 			WriteTime(TypeHelper.DateTimeToTimeSpan(value));
 		}
 
-		public void WriteDate(DateTime value)
-		{
-			Write(TypeEncoder.EncodeDate(Convert.ToDateTime(value)));
-		}
-
-		public void WriteTime(TimeSpan value)
-		{
-			Write(TypeEncoder.EncodeTime(value));
-		}
-
-		#endregion
-
-		#region Private Methods
-
-		private void CheckDisposed()
-		{
-			if (_innerStream == null)
-				throw new ObjectDisposedException($"The {nameof(XdrStream)} is closed.");
-		}
-
-		private void EnsureWritable()
-		{
-			if (!CanWrite)
-				throw new InvalidOperationException("Write operations are not allowed by this stream.");
-		}
-
-		private void EnsureReadable()
-		{
-			if (!CanRead)
-				throw new InvalidOperationException("Read operations are not allowed by this stream.");
-		}
-
-		#endregion
-
-		#region Private Properties
-
-		private bool ValidOperationAvailable
-		{
-			get { return _operation >= 0; }
-		}
-
-		#endregion
+		public void Write(bool value) => WriteOpaque(TypeEncoder.EncodeBoolean(value));
 	}
+
+
+	internal class DecompressionStream: Stream
+	{
+		// dont use MemoryStream because one is zeroing data on SetLength
+		struct InputBuffer
+		{
+			public InputBuffer(byte[] buffer)
+			{
+				Buffer = buffer;
+				Length = 0;
+				Position = 0;
+			}
+			public byte[] Buffer { get; }
+			public int Position { get; set; }
+			public int Length { get; set; }
+			public int Capacity => Buffer.Length;
+
+			public int Read(byte[] buffer, int offset, int count)
+			{
+				var n = Length - Position;
+				if (n > count) n = count;
+				if (n == 0) return 0;
+				Array.Copy(Buffer, Position, buffer, offset, n);
+				Position += n;
+				return n;
+			}
+		}
+
+		private readonly Stream _stream;
+		private readonly byte[] _streamBuffer;
+		private InputBuffer _decompressedBuffer;
+		private readonly ZlibCodec _inflate;
+
+		public DecompressionStream(Stream stream, int inputBufferSize, int decompressedBufferSize)
+		{
+			_stream = stream;
+			_streamBuffer = new byte[inputBufferSize];
+			_decompressedBuffer = new InputBuffer(new byte[decompressedBufferSize]);
+			_inflate = new Ionic.Zlib.ZlibCodec(Ionic.Zlib.CompressionMode.Decompress);
+		}
+
+		public override void Flush()
+		{
+			_decompressedBuffer.Length = 0;
+			_decompressedBuffer.Position = 0;
+		}
+
+		public override long Seek(long offset, SeekOrigin origin)
+		{
+			throw new InvalidOperationException("DecompressionStream.Seek");
+		}
+
+		public override void SetLength(long value)
+		{
+			throw new InvalidOperationException("DecompressionStream.SetLength");
+		}
+
+		public override int Read(byte[] buffer, int offset, int count)
+		{
+			var n = _decompressedBuffer.Read(buffer, offset, count);
+			if (n == count) return n;
+
+			var readed = _stream.Read(_streamBuffer, 0, _streamBuffer.Length);
+
+			_inflate.OutputBuffer = _decompressedBuffer.Buffer;
+			_inflate.AvailableBytesOut = _decompressedBuffer.Capacity;
+			_inflate.NextOut = 0;
+			_inflate.InputBuffer = _streamBuffer;
+			_inflate.AvailableBytesIn = readed;
+			_inflate.NextIn = 0;
+			var rc = _inflate.Inflate(Ionic.Zlib.FlushType.None);
+			if (rc != Ionic.Zlib.ZlibConstants.Z_OK)
+				throw new IOException($"Error '{rc}' while decompressing the data.");
+			if (_inflate.AvailableBytesIn != 0)
+				throw new IOException("Decompression buffer too small.");
+			_decompressedBuffer.Position = 0;
+			_decompressedBuffer.Length = _inflate.NextOut;
+
+			n += _decompressedBuffer.Read(buffer, offset + n, count - n);
+			return n;
+		}
+
+		public override void Write(byte[] buffer, int offset, int count)
+		{
+			_stream.Write(buffer, offset, count);
+		}
+
+		public override bool CanRead => _stream.CanRead;
+		public override bool CanSeek => false;
+		public override bool CanWrite => false;
+
+		public override long Length
+		{
+			get { throw new InvalidOperationException("DecompressionStream.Length"); }
+		}
+
+		public override long Position
+		{
+			get { throw new InvalidOperationException("DecompressionStream.get_Position"); }
+			set { throw new InvalidOperationException("DecompressionStream.set_Position"); }
+		}
+
+	}
+
 }
