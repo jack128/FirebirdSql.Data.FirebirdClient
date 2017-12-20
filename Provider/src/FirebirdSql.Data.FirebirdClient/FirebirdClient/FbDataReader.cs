@@ -415,7 +415,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].Value);
+			return CheckedGetValue(i, row => row.Value);
 		}
 
 		public override int GetValues(object[] values)
@@ -436,7 +436,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetBoolean());
+			return CheckedGetValue(i, row => row.GetBoolean());
 		}
 
 		public override byte GetByte(int i)
@@ -444,7 +444,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetByte());
+			return CheckedGetValue(i, row => row.GetByte());
 		}
 
 		public override long GetBytes(
@@ -468,12 +468,12 @@ namespace FirebirdSql.Data.FirebirdClient
 				}
 				else
 				{
-					return CheckedGetValue(() => _row[i].GetBinary()).Length;
+					return CheckedGetValue(i, row => row.GetBinary()).Length;
 				}
 			}
 			else
 			{
-				byte[] byteArray = CheckedGetValue(() => _row[i].GetBinary());
+				byte[] byteArray = CheckedGetValue(i, row => row.GetBinary());
 
 				if (length > (byteArray.Length - dataIndex))
 				{
@@ -501,7 +501,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetChar());
+			return CheckedGetValue(i, row => row.GetChar());
 		}
 
 		public override long GetChars(
@@ -522,13 +522,13 @@ namespace FirebirdSql.Data.FirebirdClient
 				}
 				else
 				{
-					return (CheckedGetValue(() => (string)GetValue(i))).ToCharArray().Length;
+					return CheckedGetValue(() => (string)GetValue(i)).ToCharArray().Length;
 				}
 			}
 			else
 			{
 
-				char[] charArray = (CheckedGetValue(() => (string)GetValue(i))).ToCharArray();
+				char[] charArray = CheckedGetValue(() => (string)GetValue(i)).ToCharArray();
 
 				int charsRead = 0;
 				int realLength = length;
@@ -559,7 +559,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetGuid());
+			return CheckedGetValue(i, row => row.GetGuid());
 		}
 
 		public override Int16 GetInt16(int i)
@@ -567,7 +567,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetInt16());
+			return CheckedGetValue(i, row => row.GetInt16());
 		}
 
 		public override Int32 GetInt32(int i)
@@ -575,7 +575,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetInt32());
+			return CheckedGetValue(i, row => row.GetInt32());
 		}
 
 		public override Int64 GetInt64(int i)
@@ -583,7 +583,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetInt64());
+			return CheckedGetValue(i, row => row.GetInt64());
 		}
 
 		public override float GetFloat(int i)
@@ -591,7 +591,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetFloat());
+			return CheckedGetValue(i, row => row.GetFloat());
 		}
 
 		public override double GetDouble(int i)
@@ -599,7 +599,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetDouble());
+			return CheckedGetValue(i, row => row.GetDouble());
 		}
 
 		public override string GetString(int i)
@@ -607,7 +607,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetString());
+			return CheckedGetValue(i, row => row.GetString());
 		}
 
 		public override Decimal GetDecimal(int i)
@@ -615,7 +615,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetDecimal());
+			return CheckedGetValue(i, row => row.GetDecimal());
 		}
 
 		public override DateTime GetDateTime(int i)
@@ -623,7 +623,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			CheckPosition();
 			CheckIndex(i);
 
-			return CheckedGetValue(() => _row[i].GetDateTime());
+			return CheckedGetValue(i, row => row.GetDateTime());
 		}
 
 		public override bool IsDBNull(int i)
@@ -807,6 +807,17 @@ namespace FirebirdSql.Data.FirebirdClient
 			try
 			{
 				return f();
+			}
+			catch (IscException ex)
+			{
+				throw new FbException(ex.Message, ex);
+			}
+		}
+		private T CheckedGetValue<T>(int index, Func<DbValue, T> f)
+		{
+			try
+			{
+				return f(_row[index]);
 			}
 			catch (IscException ex)
 			{
