@@ -46,7 +46,7 @@ namespace FirebirdSql.Data.FirebirdClient
 #endif
 		private FbCommand _command;
 		private FbConnection _connection;
-		private DbValue[] _row;
+		private DbValueBase[] _row;
 		private Descriptor _fields;
 		private CommandBehavior _commandBehavior;
 		private bool _eof;
@@ -813,7 +813,7 @@ namespace FirebirdSql.Data.FirebirdClient
 				throw new FbException(ex.Message, ex);
 			}
 		}
-		private T CheckedGetValue<T>(int index, Func<DbValue, T> f)
+		private T CheckedGetValue<T>(int index, Func<DbValueBase, T> f)
 		{
 			try
 			{

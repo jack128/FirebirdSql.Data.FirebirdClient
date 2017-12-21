@@ -553,7 +553,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		public override object ExecuteScalar()
 		{
-			DbValue[] values = null;
+			DbValueBase[] values = null;
 			object val = null;
 
 			CheckCommand();
@@ -636,7 +636,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			}
 		}
 
-		internal DbValue[] Fetch()
+		internal DbValueBase[] Fetch()
 		{
 			try
 			{
@@ -669,14 +669,14 @@ namespace FirebirdSql.Data.FirebirdClient
 			SetOutputParameters(null);
 		}
 
-		internal void SetOutputParameters(DbValue[] outputParameterValues)
+		internal void SetOutputParameters(DbValueBase[] outputParameterValues)
 		{
 			if (Parameters.Count > 0 && _statement != null)
 			{
 				if (_statement != null &&
 					_statement.StatementType == DbStatementType.StoredProcedure)
 				{
-					DbValue[] values = outputParameterValues;
+					DbValueBase[] values = outputParameterValues;
 					if (outputParameterValues == null)
 					{
 						values = _statement.GetOutputParameters();

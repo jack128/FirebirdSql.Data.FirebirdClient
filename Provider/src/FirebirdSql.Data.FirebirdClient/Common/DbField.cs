@@ -167,7 +167,7 @@ namespace FirebirdSql.Data.Common
 		public object Value
 		{
 			get { return _dbValue.Value; }
-			set { _dbValue.Value = value; }
+			set { _dbValue.SetValue(value); }
 		}
 
 		#endregion

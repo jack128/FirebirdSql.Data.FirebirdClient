@@ -87,9 +87,9 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 			}
 		}
 
-		protected override DbValue[] ReadRow()
+		protected override DbValueBase[] ReadRow()
 		{
-			DbValue[] row = new DbValue[_fields.Count];
+			DbValueBase[] row = new DbValueBase[_fields.Count];
 			try
 			{
 				var nullBytes = _database.XdrStream.ReadOpaque((int)Math.Ceiling(_fields.Count / 8d));
@@ -98,12 +98,11 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 				{
 					if (nullBits.Get(i))
 					{
-						row[i] = new DbValue(this, _fields[i], null);
+						row[i] = NullDbValue.Instance;
 					}
 					else
 					{
-						var value = ReadRawValue(_fields[i]);
-						row[i] = new DbValue(this, _fields[i], value);
+						row[i] = ReadRawValue(_fields[i]);
 					}
 				}
 

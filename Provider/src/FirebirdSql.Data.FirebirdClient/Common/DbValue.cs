@@ -24,7 +24,242 @@ using System.Globalization;
 
 namespace FirebirdSql.Data.Common
 {
-	internal sealed class DbValue
+
+	internal abstract class DbValueBase
+	{
+		public abstract object Value { get; }
+
+		#region Methods
+
+		public abstract bool IsDBNull();
+
+		public virtual string GetString() => Value?.ToString();
+		public virtual char GetChar() => Convert.ToChar(Value, CultureInfo.CurrentCulture);
+		public virtual bool GetBoolean() => Convert.ToBoolean(Value, CultureInfo.InvariantCulture);
+		public virtual byte GetByte() => Convert.ToByte(Value, CultureInfo.InvariantCulture);
+		public virtual short GetInt16() => Convert.ToInt16(Value, CultureInfo.InvariantCulture);
+		public virtual int GetInt32() => Convert.ToInt32(Value, CultureInfo.InvariantCulture);
+		public virtual long GetInt64() => Convert.ToInt64(Value, CultureInfo.InvariantCulture);
+		public virtual decimal GetDecimal() => Convert.ToDecimal(Value, CultureInfo.InvariantCulture);
+		public virtual float GetFloat() => Convert.ToSingle(Value, CultureInfo.InvariantCulture);
+		public virtual double GetDouble() => Convert.ToDouble(Value, CultureInfo.InvariantCulture);
+
+		public virtual Guid GetGuid()
+		{
+			if (Value is Guid)
+			{
+				return (Guid)Value;
+			}
+
+			var bytes = Value as byte[];
+			if (bytes != null)
+			{
+				return new Guid(bytes);
+			}
+
+			throw new InvalidOperationException("Incorrect Guid value");
+		}
+
+		public virtual DateTime GetDateTime()
+		{
+			if (Value is TimeSpan)
+				return new DateTime(0 * 10000L + 621355968000000000 + ((TimeSpan)Value).Ticks);
+			if (Value is DateTimeOffset)
+				return Convert.ToDateTime(((DateTimeOffset)Value).DateTime, CultureInfo.CurrentCulture.DateTimeFormat);
+			return Convert.ToDateTime(Value, CultureInfo.CurrentCulture.DateTimeFormat);
+		}
+
+		#endregion
+
+		public virtual Array GetArray()
+		{
+			throw new InvalidOperationException("Long value cannot be converted to array");
+		}
+
+		public virtual byte[] GetBinary()
+		{
+			throw new InvalidOperationException("Long value cannot be converted to binary");
+		}
+	}
+
+	internal class NullDbValue : DbValueBase
+	{
+		public static readonly NullDbValue Instance = new NullDbValue();
+		private NullDbValue() { }
+
+		public override bool IsDBNull() => true;
+		public override object Value => DBNull.Value;
+		public override long GetInt64() => 0;
+		public override byte GetByte() => 0;
+		public override double GetDouble() => 0;
+		public override float GetFloat() => 0;
+		public override short GetInt16() => 0;
+		public override int GetInt32() => 0;
+		public override bool GetBoolean() => false;
+		public override char GetChar() => (char)0;
+		public override decimal GetDecimal() => 0;
+	}
+
+	internal class GuidDbValue : DbValueBase
+	{
+		private readonly Guid _value;
+
+		public GuidDbValue(Guid value) { _value = value; }
+
+		public override bool IsDBNull() => false;
+		public override object Value => _value;
+		public override Guid GetGuid() => _value;
+	}
+
+	internal class BooleanDbValue : DbValueBase
+	{
+		public static readonly BooleanDbValue True = new BooleanDbValue(true);
+		public static readonly BooleanDbValue False = new BooleanDbValue(false);
+
+		private static readonly object _trueBoxed = true;
+		private static readonly object _falseBoxed = false;
+
+		private readonly bool _value;
+		private BooleanDbValue(bool value) { _value = value; }
+		public override bool IsDBNull() => false;
+		public override object Value => _value ? _trueBoxed : _falseBoxed;
+		public override long GetInt64() => Convert.ToInt64(_value);
+		public override byte GetByte() => Convert.ToByte(_value);
+		public override double GetDouble() => Convert.ToDouble(_value);
+		public override float GetFloat() => Convert.ToSingle(_value);
+		public override short GetInt16() => Convert.ToInt16(_value);
+		public override int GetInt32() => Convert.ToInt32(_value);
+		public override bool GetBoolean() => _value;
+		public override char GetChar() => Convert.ToChar(_value);
+		public override decimal GetDecimal() => Convert.ToDecimal(_value);
+	}
+
+
+	internal class Int64DbValue : DbValueBase
+	{
+		private readonly long _value;
+		public Int64DbValue(long value) { _value = value; }
+		public override bool IsDBNull() => false;
+		public override object Value => _value;
+		public override long GetInt64() => _value;
+
+		public override byte GetByte() => Convert.ToByte(_value);
+		public override double GetDouble() => Convert.ToDouble(_value);
+		public override float GetFloat() => Convert.ToSingle(_value);
+		public override short GetInt16() => Convert.ToInt16(_value);
+		public override int GetInt32() => Convert.ToInt32(_value);
+		public override bool GetBoolean() => Convert.ToBoolean(_value);
+		public override char GetChar() => Convert.ToChar(_value);
+		public override decimal GetDecimal() => Convert.ToDecimal(_value);
+	}
+
+	internal class Int32DbValue : DbValueBase
+	{
+		private readonly int _value;
+		public Int32DbValue(int value) { _value = value; }
+
+		public override bool IsDBNull() => false;
+		public override object Value => _value;
+		public override long GetInt64() => _value;
+		public override byte GetByte() => Convert.ToByte(_value);
+		public override double GetDouble() => Convert.ToDouble(_value);
+		public override float GetFloat() => Convert.ToSingle(_value);
+		public override short GetInt16() => Convert.ToInt16(_value);
+		public override int GetInt32() => _value;
+		public override bool GetBoolean() => Convert.ToBoolean(_value);
+		public override char GetChar() => Convert.ToChar(_value);
+		public override decimal GetDecimal() => Convert.ToDecimal(_value);
+	}
+
+	internal class Int16DbValue : DbValueBase
+	{
+		private readonly short _value;
+		public Int16DbValue(short value) { _value = value; }
+
+		public override bool IsDBNull() => false;
+		public override object Value => _value;
+		public override long GetInt64() => _value;
+		public override byte GetByte() => Convert.ToByte(_value);
+		public override double GetDouble() => Convert.ToDouble(_value);
+		public override float GetFloat() => Convert.ToSingle(_value);
+		public override short GetInt16() => _value;
+		public override int GetInt32() => _value;
+		public override bool GetBoolean() => Convert.ToBoolean(_value);
+		public override char GetChar() => Convert.ToChar(_value);
+		public override decimal GetDecimal() => Convert.ToDecimal(_value);
+	}
+	internal class DecimalDbValue : DbValueBase
+	{
+		private readonly decimal _value;
+		public DecimalDbValue(decimal value) { _value = value; }
+
+		public override bool IsDBNull() => false;
+		public override object Value => _value;
+		public override long GetInt64() => Convert.ToInt64(_value);
+		public override byte GetByte() => Convert.ToByte(_value);
+		public override double GetDouble() => Convert.ToDouble(_value);
+		public override float GetFloat() => Convert.ToSingle(_value);
+		public override short GetInt16() => Convert.ToInt16(_value);
+		public override int GetInt32() => Convert.ToInt32(_value);
+		public override bool GetBoolean() => Convert.ToBoolean(_value);
+		public override char GetChar() => Convert.ToChar(_value);
+		public override decimal GetDecimal() => Convert.ToDecimal(_value);
+	}
+	internal class DoubleDbValue : DbValueBase
+	{
+		private readonly double _value;
+		public DoubleDbValue(double value) { _value = value; }
+
+		public override bool IsDBNull() => false;
+		public override object Value => _value;
+		public override long GetInt64() => Convert.ToInt64(_value);
+		public override byte GetByte() => Convert.ToByte(_value);
+		public override double GetDouble() => Convert.ToDouble(_value);
+		public override float GetFloat() => Convert.ToSingle(_value);
+		public override short GetInt16() => Convert.ToInt16(_value);
+		public override int GetInt32() => Convert.ToInt32(_value);
+		public override bool GetBoolean() => Convert.ToBoolean(_value);
+		public override char GetChar() => Convert.ToChar(_value);
+		public override decimal GetDecimal() => Convert.ToDecimal(_value);
+	}
+	internal class SingleDbValue : DbValueBase
+	{
+		private readonly float _value;
+		public SingleDbValue(float value) { _value = value; }
+
+		public override bool IsDBNull() => false;
+		public override object Value => _value;
+		public override long GetInt64() => Convert.ToInt64(_value);
+		public override byte GetByte() => Convert.ToByte(_value);
+		public override double GetDouble() => Convert.ToDouble(_value);
+		public override float GetFloat() => Convert.ToSingle(_value);
+		public override short GetInt16() => Convert.ToInt16(_value);
+		public override int GetInt32() => Convert.ToInt32(_value);
+		public override bool GetBoolean() => Convert.ToBoolean(_value);
+		public override char GetChar() => Convert.ToChar(_value);
+		public override decimal GetDecimal() => Convert.ToDecimal(_value);
+	}
+	internal class DateTimeDbValue : DbValueBase
+	{
+		private readonly DateTime _value;
+		public DateTimeDbValue(DateTime value) { _value = value; }
+
+		public override bool IsDBNull() => false;
+		public override object Value => _value;
+		public override long GetInt64() => Convert.ToInt64(_value);
+		public override byte GetByte() => Convert.ToByte(_value);
+		public override double GetDouble() => Convert.ToDouble(_value);
+		public override float GetFloat() => Convert.ToSingle(_value);
+		public override short GetInt16() => Convert.ToInt16(_value);
+		public override int GetInt32() => Convert.ToInt32(_value);
+		public override bool GetBoolean() => Convert.ToBoolean(_value);
+		public override char GetChar() => Convert.ToChar(_value);
+		public override decimal GetDecimal() => Convert.ToDecimal(_value);
+		public override DateTime GetDateTime() => _value;
+	}
+
+
+	internal sealed class DbValue: DbValueBase
 	{
 		#region Fields
 
@@ -41,10 +276,14 @@ namespace FirebirdSql.Data.Common
 			get { return _field; }
 		}
 
-		public object Value
+		public override object Value
 		{
 			get { return GetValue(); }
-			set { _value = value; }
+		}
+
+		public void SetValue(object value)
+		{
+			_value = value;
 		}
 
 		#endregion
@@ -75,12 +314,12 @@ namespace FirebirdSql.Data.Common
 
 		#region Methods
 
-		public bool IsDBNull()
+		public override bool IsDBNull()
 		{
 			return TypeHelper.IsDBNull(_value);
 		}
 
-		public string GetString()
+		public override string GetString()
 		{
 			if (Field.DbDataType == DbDataType.Text && _value is long)
 			{
@@ -94,47 +333,47 @@ namespace FirebirdSql.Data.Common
 			return _value.ToString();
 		}
 
-		public char GetChar()
+		public override char GetChar()
 		{
 			return Convert.ToChar(_value, CultureInfo.CurrentCulture);
 		}
 
-		public bool GetBoolean()
+		public override bool GetBoolean()
 		{
 			return Convert.ToBoolean(_value, CultureInfo.InvariantCulture);
 		}
 
-		public byte GetByte()
+		public override byte GetByte()
 		{
 			return Convert.ToByte(_value, CultureInfo.InvariantCulture);
 		}
 
-		public short GetInt16()
+		public override short GetInt16()
 		{
 			return Convert.ToInt16(_value, CultureInfo.InvariantCulture);
 		}
 
-		public int GetInt32()
+		public override int GetInt32()
 		{
 			return Convert.ToInt32(_value, CultureInfo.InvariantCulture);
 		}
 
-		public long GetInt64()
+		public override long GetInt64()
 		{
 			return Convert.ToInt64(_value, CultureInfo.InvariantCulture);
 		}
 
-		public decimal GetDecimal()
+		public override decimal GetDecimal()
 		{
 			return Convert.ToDecimal(_value, CultureInfo.InvariantCulture);
 		}
 
-		public float GetFloat()
+		public override float GetFloat()
 		{
 			return Convert.ToSingle(_value, CultureInfo.InvariantCulture);
 		}
 
-		public Guid GetGuid()
+		public override Guid GetGuid()
 		{
 			if (Value is Guid)
 			{
@@ -148,12 +387,12 @@ namespace FirebirdSql.Data.Common
 			throw new InvalidOperationException("Incorrect Guid value");
 		}
 
-		public double GetDouble()
+		public override double GetDouble()
 		{
 			return Convert.ToDouble(_value, CultureInfo.InvariantCulture);
 		}
 
-		public DateTime GetDateTime()
+		public override DateTime GetDateTime()
 		{
 			if (_value is TimeSpan)
 				return new DateTime(0 * 10000L + 621355968000000000 + ((TimeSpan)_value).Ticks);
@@ -163,7 +402,7 @@ namespace FirebirdSql.Data.Common
 				return Convert.ToDateTime(_value, CultureInfo.CurrentCulture.DateTimeFormat);
 		}
 
-		public Array GetArray()
+		public override Array GetArray()
 		{
 			if (_value is long)
 			{
@@ -173,7 +412,7 @@ namespace FirebirdSql.Data.Common
 			return (Array)_value;
 		}
 
-		public byte[] GetBinary()
+		public override byte[] GetBinary()
 		{
 			if (_value is long)
 			{

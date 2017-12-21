@@ -21,6 +21,7 @@
 
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 
 using FirebirdSql.Data.Common;
@@ -42,7 +43,7 @@ namespace FirebirdSql.Data.Client.Native
 		private StatementState _state;
 		private DbStatementType _statementType;
 		private bool _allRowsFetched;
-		private Queue _outputParams;
+		private Queue<DbValueBase[]> _outputParams;
 		private int _recordsAffected;
 		private bool _returnRecordsAffected;
 		private IntPtr[] _statusVector;
@@ -159,7 +160,7 @@ namespace FirebirdSql.Data.Client.Native
 			_recordsAffected = -1;
 			_db = (FesDatabase)db;
 			_handle = new StatementHandle();
-			_outputParams = new Queue();
+			_outputParams = new Queue<DbValueBase[]>();
 			_statusVector = new IntPtr[IscCodes.ISC_STATUS_LENGTH];
 			_fetchSqlDa = IntPtr.Zero;
 
@@ -337,7 +338,7 @@ namespace FirebirdSql.Data.Client.Native
 			{
 				Descriptor descriptor = XsqldaMarshaler.MarshalNativeToManaged(_db.Charset, outSqlda, true);
 
-				DbValue[] values = new DbValue[descriptor.Count];
+				DbValueBase[] values = new DbValueBase[descriptor.Count];
 
 				for (int i = 0; i < values.Length; i++)
 				{
@@ -357,9 +358,9 @@ namespace FirebirdSql.Data.Client.Native
 			_state = StatementState.Executed;
 		}
 
-		public override DbValue[] Fetch()
+		public override DbValueBase[] Fetch()
 		{
-			DbValue[] row = null;
+			DbValueBase[] row = null;
 
 			if (_state == StatementState.Deallocated)
 			{
@@ -409,7 +410,7 @@ namespace FirebirdSql.Data.Client.Native
 				}
 				else
 				{
-					row = new DbValue[_fields.ActualCount];
+					row = new DbValueBase[_fields.ActualCount];
 					for (int i = 0; i < row.Length; i++)
 					{
 						row[i] = new DbValue(this, _fields[i]);
@@ -420,11 +421,11 @@ namespace FirebirdSql.Data.Client.Native
 			return row;
 		}
 
-		public override DbValue[] GetOutputParameters()
+		public override DbValueBase[] GetOutputParameters()
 		{
 			if (_outputParams != null && _outputParams.Count > 0)
 			{
-				return (DbValue[])_outputParams.Dequeue();
+				return (DbValueBase[])_outputParams.Dequeue();
 			}
 
 			return null;

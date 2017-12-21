@@ -106,7 +106,7 @@ namespace FirebirdSql.Data.Common
 				lookup.Execute();
 
 				_descriptor.Bounds = new ArrayBound[16];
-				DbValue[] values;
+				DbValueBase[] values;
 				int i = 0;
 				while ((values = lookup.Fetch()) != null)
 				{
@@ -126,7 +126,7 @@ namespace FirebirdSql.Data.Common
 				lookup.Execute();
 
 				_descriptor = new ArrayDesc();
-				DbValue[] values = lookup.Fetch();
+				DbValueBase[] values = lookup.Fetch();
 				if (values != null && values.Length > 0)
 				{
 					_descriptor.RelationName = _tableName;

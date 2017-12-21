@@ -192,8 +192,8 @@ namespace FirebirdSql.Data.Common
 		public abstract void DescribeParameters();
 		public abstract void Prepare(string commandText);
 		public abstract void Execute();
-		public abstract DbValue[] Fetch();
-		public abstract DbValue[] GetOutputParameters();
+		public abstract DbValueBase[] Fetch();
+		public abstract DbValueBase[] GetOutputParameters();
 
 		public abstract BlobBase CreateBlob();
 		public abstract BlobBase CreateBlob(long handle);

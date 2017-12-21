@@ -40,8 +40,8 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		protected StatementState _state;
 		protected DbStatementType _statementType;
 		protected bool _allRowsFetched;
-		private Queue<DbValue[]> _rows;
-		private Queue<DbValue[]> _outputParams;
+		private Queue<DbValueBase[]> _rows;
+		private Queue<DbValueBase[]> _outputParams;
 		private int _fetchSize;
 		private bool _returnRecordsAffected;
 
@@ -156,8 +156,8 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			_handle = IscCodes.INVALID_OBJECT;
 			RecordsAffected = -1;
 			_fetchSize = 200;
-			_rows = new Queue<DbValue[]>();
-			_outputParams = new Queue<DbValue[]>();
+			_rows = new Queue<DbValueBase[]>();
+			_outputParams = new Queue<DbValueBase[]>();
 
 			_database = (GdsDatabase)db;
 
@@ -308,7 +308,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
-		public override DbValue[] Fetch()
+		public override DbValueBase[] Fetch()
 		{
 			if (_state == StatementState.Deallocated)
 			{
@@ -385,7 +385,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
-		public override DbValue[] GetOutputParameters()
+		public override DbValueBase[] GetOutputParameters()
 		{
 			if (_outputParams.Count > 0)
 			{
@@ -856,7 +856,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
-		protected object ReadRawValue(DbField field)
+		protected DbValueBase ReadRawValue(DbField field)
 		{
 			var innerCharset = !_database.Charset.IsNoneCharset ? _database.Charset : field.Charset;
 
@@ -865,7 +865,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 				case DbDataType.Char:
 					if (field.Charset.IsOctetsCharset)
 					{
-						return _database.XdrStream.ReadOpaque(field.Length);
+						return new DbValue(this, field, _database.XdrStream.ReadOpaque(field.Length));
 					}
 					else
 					{
@@ -873,60 +873,62 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 						if ((field.Length % field.Charset.BytesPerCharacter) == 0 &&
 							s.Length > field.CharCount)
 						{
-							return s.Substring(0, field.CharCount);
+							return new DbValue(this, field, s.Substring(0, field.CharCount));
 						}
 						else
 						{
-							return s;
+							return new DbValue(this, field, s);
 						}
 					}
 
 				case DbDataType.VarChar:
 					if (field.Charset.IsOctetsCharset)
 					{
-						return _database.XdrStream.ReadBuffer();
+						return new DbValue(this, field, _database.XdrStream.ReadBuffer());
 					}
 					else
 					{
-						return _database.XdrStream.ReadString(innerCharset);
+						return new DbValue(this, field, _database.XdrStream.ReadString(innerCharset));
 					}
 
 				case DbDataType.SmallInt:
-					return _database.XdrStream.ReadInt16();
+					return new Int16DbValue(_database.XdrStream.ReadInt16());
 
 				case DbDataType.Integer:
-					return _database.XdrStream.ReadInt32();
+					return new Int32DbValue(_database.XdrStream.ReadInt32());
+
+				case DbDataType.BigInt:
+					return new Int64DbValue(_database.XdrStream.ReadInt64());
 
 				case DbDataType.Array:
 				case DbDataType.Binary:
 				case DbDataType.Text:
-				case DbDataType.BigInt:
-					return _database.XdrStream.ReadInt64();
+					return new DbValue(this, field, _database.XdrStream.ReadInt64());
 
 				case DbDataType.Decimal:
 				case DbDataType.Numeric:
-					return _database.XdrStream.ReadDecimal(field.DataType, field.NumericScale);
+					return new DecimalDbValue(_database.XdrStream.ReadDecimal(field.DataType, field.NumericScale));
 
 				case DbDataType.Float:
-					return _database.XdrStream.ReadSingle();
+					return new SingleDbValue(_database.XdrStream.ReadSingle());
 
 				case DbDataType.Guid:
-					return _database.XdrStream.ReadGuid(field.Length);
+					return new GuidDbValue(_database.XdrStream.ReadGuid(field.Length));
 
 				case DbDataType.Double:
-					return _database.XdrStream.ReadDouble();
+					return new DoubleDbValue(_database.XdrStream.ReadDouble());
 
 				case DbDataType.Date:
-					return _database.XdrStream.ReadDate();
+					return new DateTimeDbValue(_database.XdrStream.ReadDate());
 
 				case DbDataType.Time:
-					return _database.XdrStream.ReadTime();
+					return new DbValue(this, field, _database.XdrStream.ReadTime());
 
 				case DbDataType.TimeStamp:
-					return _database.XdrStream.ReadDateTime();
+					return new DateTimeDbValue(_database.XdrStream.ReadDateTime());
 
 				case DbDataType.Boolean:
-					return _database.XdrStream.ReadBoolean();
+					return _database.XdrStream.ReadBoolean() ? BooleanDbValue.True : BooleanDbValue.False;
 
 				default:
 					throw TypeHelper.InvalidDataType((int)field.DbDataType);
@@ -981,9 +983,9 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
-		protected virtual DbValue[] ReadRow()
+		protected virtual DbValueBase[] ReadRow()
 		{
-			DbValue[] row = new DbValue[_fields.Count];
+			DbValueBase[] row = new DbValueBase[_fields.Count];
 			try
 			{
 				for (int i = 0; i < _fields.Count; i++)
@@ -992,11 +994,11 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 					var sqlInd = _database.XdrStream.ReadInt32();
 					if (sqlInd == -1)
 					{
-						row[i] = new DbValue(this, _fields[i], null);
+						row[i] = NullDbValue.Instance;
 					}
 					else if (sqlInd == 0)
 					{
-						row[i] = new DbValue(this, _fields[i], value);
+						row[i] = value;
 					}
 					else
 					{
