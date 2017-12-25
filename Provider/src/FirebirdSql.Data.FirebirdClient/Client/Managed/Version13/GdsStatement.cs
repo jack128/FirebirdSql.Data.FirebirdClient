@@ -87,9 +87,8 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 			}
 		}
 
-		protected override DbValueBase[] ReadRow()
+		protected override void ReadRow(DbValueBase[] row)
 		{
-			DbValueBase[] row = new DbValueBase[_fields.Count];
 			try
 			{
 				var nullBytes = _database.XdrStream.ReadOpaque((int)Math.Ceiling(_fields.Count / 8d));
@@ -105,8 +104,6 @@ namespace FirebirdSql.Data.Client.Managed.Version13
 						row[i] = ReadRawValue(_fields[i]);
 					}
 				}
-
-				return row;
 			}
 			catch (IOException ex)
 			{

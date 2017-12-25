@@ -41,6 +41,7 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 		protected DbStatementType _statementType;
 		protected bool _allRowsFetched;
 		private Queue<DbValueBase[]> _rows;
+		private Stack<DbValueBase[]> _bufferedRows;
 		private Queue<DbValueBase[]> _outputParams;
 		private int _fetchSize;
 		private bool _returnRecordsAffected;
@@ -308,6 +309,19 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
+		private DbValueBase[] AllocNewRow()
+		{
+			if (_bufferedRows == null || _bufferedRows.Count == 0)
+				return new DbValueBase[_fields.Count];
+			var result = _bufferedRows.Pop();
+			if (result.Length != _fields.Count)
+			{
+				_bufferedRows.Clear();
+				return new DbValueBase[_fields.Count];
+			}
+			return result;
+		}
+
 		public override DbValueBase[] Fetch()
 		{
 			if (_state == StatementState.Deallocated)
@@ -345,7 +359,9 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 								if (fetchResponse.Count > 0 && fetchResponse.Status == 0)
 								{
-									_rows.Enqueue(ReadRow());
+									var row = AllocNewRow();
+									ReadRow(row);
+									_rows.Enqueue(row);
 								}
 								else if (fetchResponse.Status == 100)
 								{
@@ -375,7 +391,13 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 
 			if (_rows != null && _rows.Count > 0)
 			{
-				return _rows.Dequeue();
+				var result = _rows.Dequeue();
+				if (!_allRowsFetched)
+				{
+					if (_bufferedRows == null) _bufferedRows = new Stack<DbValueBase[]>();
+					_bufferedRows.Push(result);
+				}
+				return result;
 			}
 			else
 			{
@@ -591,7 +613,9 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			{
 				if (response.Count > 0)
 				{
-					_outputParams.Enqueue(ReadRow());
+					var row = AllocNewRow();
+					ReadRow(row);
+					_outputParams.Enqueue(row);
 				}
 			}
 			catch (IOException ex)
@@ -983,9 +1007,8 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			}
 		}
 
-		protected virtual DbValueBase[] ReadRow()
+		protected virtual void ReadRow(DbValueBase[] row)
 		{
-			DbValueBase[] row = new DbValueBase[_fields.Count];
 			try
 			{
 				for (int i = 0; i < _fields.Count; i++)
@@ -1010,7 +1033,6 @@ namespace FirebirdSql.Data.Client.Managed.Version10
 			{
 				throw IscException.ForErrorCode(IscCodes.isc_net_read_err, ex);
 			}
-			return row;
 		}
 
 		#endregion
