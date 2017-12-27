@@ -46,7 +46,7 @@ namespace FirebirdSql.Data.FirebirdClient
 		[Category("Security")]
 		[DisplayName("Password")]
 		[Description("Indicates the password to be used when connecting to the data source.")]
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		[PasswordPropertyText(true)]
 #endif
 		[DefaultValue(FbConnectionString.DefaultValuePassword)]
@@ -228,7 +228,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		[Category("Advanced")]
 		[DisplayName("Client Library")]
-		[Description("Client library for Firebird Embedded Server.")]
+		[Description("Client library for Firebird Embedded.")]
 		[DefaultValue(FbConnectionString.DefaultValueClientLibrary)]
 		public string ClientLibrary
 		{
@@ -276,6 +276,16 @@ namespace FirebirdSql.Data.FirebirdClient
 			set { SetValue(FbConnectionString.DefaultKeyCompression, value); }
 		}
 
+		[Category("Advanced")]
+		[DisplayName("CryptKey")]
+		[Description("Key used for database decryption.")]
+		[DefaultValue(FbConnectionString.DefaultValueCryptKey)]
+		public byte[] CryptKey
+		{
+			get { return GetBytes(FbConnectionString.DefaultKeyCryptKey, FbConnectionString.DefaultValueCryptKey); }
+			set { SetValue(FbConnectionString.DefaultKeyCryptKey, value); }
+		}
+
 		#endregion
 
 		#region Constructors
@@ -296,41 +306,32 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		private int GetInt32(string keyword, int defaultValue)
 		{
-			object value;
-			return TryGetValue(GetKey(keyword), out value)
+			return TryGetValue(GetKey(keyword), out var value)
 				? Convert.ToInt32(value)
 				: defaultValue;
 		}
 
 		private FbServerType GetServerType(string keyword, FbServerType defaultValue)
 		{
-			object value;
-			if (!TryGetValue(GetKey(keyword), out value))
+			if (!TryGetValue(GetKey(keyword), out var value))
 				return defaultValue;
 
-			if (value is FbServerType)
+			switch (value)
 			{
-				return (FbServerType)value;
+				case FbServerType fbServerType:
+					return fbServerType;
+				case string s when s == "Default":
+					return FbServerType.Default;
+				case string s when s == "Embedded":
+					return FbServerType.Embedded;
+				default:
+					return (FbServerType)GetInt32(keyword, (int)defaultValue);
 			}
-			else if (value is string)
-			{
-				switch ((string)value)
-				{
-					case "Default":
-						return FbServerType.Default;
-
-					case "Embedded":
-						return FbServerType.Embedded;
-				}
-			}
-
-			return (FbServerType)GetInt32(keyword, (int)defaultValue);
 		}
 
 		private IsolationLevel GetIsolationLevel(string keyword, IsolationLevel defaultValue)
 		{
-			object value;
-			if (!TryGetValue(GetKey(keyword), out value))
+			if (!TryGetValue(GetKey(keyword), out var value))
 				return defaultValue;
 
 			return (IsolationLevel)GetInt32(keyword, (int)defaultValue);
@@ -338,23 +339,36 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		private string GetString(string keyword, string defaultValue)
 		{
-			object value;
-			return TryGetValue(GetKey(keyword), out value)
+			return TryGetValue(GetKey(keyword), out var value)
 				? Convert.ToString(value)
 				: defaultValue;
 		}
 
 		private bool GetBoolean(string keyword, bool defaultValue)
 		{
-			object value;
-			return TryGetValue(GetKey(keyword), out value)
+			return TryGetValue(GetKey(keyword), out var value)
 				? Convert.ToBoolean(value)
+				: defaultValue;
+		}
+
+		private byte[] GetBytes(string keyword, byte[] defaultValue)
+		{
+			return TryGetValue(GetKey(keyword), out var value)
+				? Convert.FromBase64String(value as string)
 				: defaultValue;
 		}
 
 		private void SetValue<T>(string keyword, T value)
 		{
-			this[GetKey(keyword)] = value;
+			var index = GetKey(keyword);
+			if (typeof(T) == typeof(byte[]))
+			{
+				this[index] = Convert.ToBase64String(value as byte[]);
+			}
+			else
+			{
+				this[index] = value;
+			}
 		}
 
 		private string GetKey(string keyword)

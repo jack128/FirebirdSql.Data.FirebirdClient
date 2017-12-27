@@ -41,7 +41,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		#region Fields
 
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		private DataTable _schemaTable;
 #endif
 		private FbCommand _command;
@@ -146,7 +146,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		#region DbDataReader overriden methods
 
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		public override void Close()
 		{
 			Dispose();
@@ -159,6 +159,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			{
 				if (!IsClosed)
 				{
+					_isClosed = true;
 					if (_command != null && !_command.IsDisposed)
 					{
 						if (_command.CommandType == CommandType.StoredProcedure)
@@ -175,12 +176,11 @@ namespace FirebirdSql.Data.FirebirdClient
 					{
 						_connection.Close();
 					}
-					_isClosed = true;
 					_position = StartPosition;
 					_command = null;
 					_connection = null;
 					_row = null;
-#if !NETCORE10
+#if !NETSTANDARD1_6
 					_schemaTable = null;
 #endif
 					_fields = null;
@@ -221,7 +221,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			return retValue;
 		}
 
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		public override DataTable GetSchemaTable()
 		{
 			CheckState();
@@ -714,8 +714,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			{
 				InitializeColumnsIndexes();
 			}
-			int index;
-			if (!_columnsIndexesOrdinal.TryGetValue(name, out index))
+			if (!_columnsIndexesOrdinal.TryGetValue(name, out var index))
 				if (!_columnsIndexesOrdinalCI.TryGetValue(name, out index))
 					throw new IndexOutOfRangeException($"Could not find specified column '{name}' in results.");
 			return index;
@@ -743,7 +742,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			return false;
 		}
 
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		private static DataTable GetSchemaTableStructure()
 		{
 			DataTable schema = new DataTable("Schema");

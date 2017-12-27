@@ -20,7 +20,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using FirebirdSql.Data.Common;
@@ -42,10 +41,10 @@ namespace FirebirdSql.Data.FirebirdClient
 			{
 				bool _disposed;
 
-				public DateTimeOffset Created { get; private set; }
+				public long Created { get; private set; }
 				public FbConnectionInternal Connection { get; private set; }
 
-				public Item(DateTimeOffset created, FbConnectionInternal connection)
+				public Item(long created, FbConnectionInternal connection)
 				{
 					Created = created;
 					Connection = connection;
@@ -56,7 +55,7 @@ namespace FirebirdSql.Data.FirebirdClient
 					if (_disposed)
 						return;
 					_disposed = true;
-					Created = default(DateTimeOffset);
+					Created = default(long);
 					Connection.Dispose();
 					Connection = null;
 				}
@@ -114,7 +113,7 @@ namespace FirebirdSql.Data.FirebirdClient
 					var removed = _busy.Remove(connection);
 					if (removed)
 					{
-						_available.Push(new Item(DateTimeOffset.UtcNow, connection));
+						_available.Push(new Item(GetTicks(), connection));
 					}
 				}
 			}
@@ -125,11 +124,11 @@ namespace FirebirdSql.Data.FirebirdClient
 				{
 					CheckDisposedImpl();
 
-					var now = DateTimeOffset.UtcNow;
+					var now = GetTicks();
 					var available = _available.ToArray();
 					if (available.Count() <= _connectionString.MinPoolSize)
 						return;
-					var keep = available.Where(x => IsAlive(_connectionString.ConnectionLifeTime, x.Created, now)).ToArray();
+					var keep = available.Where(x => ConnectionPoolLifetimeHelper.IsAlive(_connectionString.ConnectionLifeTime, x.Created, now)).ToArray();
 					var keepCount = keep.Count();
 					if (keepCount < _connectionString.MinPoolSize)
 					{
@@ -160,11 +159,10 @@ namespace FirebirdSql.Data.FirebirdClient
 				return result;
 			}
 
-			static bool IsAlive(long connectionLifeTime, DateTimeOffset created, DateTimeOffset now)
+			static long GetTicks()
 			{
-				if (connectionLifeTime == 0)
-					return true;
-				return created.AddSeconds(connectionLifeTime) > now;
+				var ticks = Environment.TickCount;
+				return ticks + -(long)int.MinValue;
 			}
 
 			void CleanConnectionsImpl()
@@ -185,7 +183,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			void CheckDisposedImpl()
 			{
 				if (_disposed)
-					throw new ObjectDisposedException(typeof(Pool).Name);
+					throw new ObjectDisposedException(nameof(Pool));
 			}
 
 			FbConnectionInternal CreateNewConnectionIfPossibleImpl(FbConnectionString connectionString)
@@ -232,8 +230,7 @@ namespace FirebirdSql.Data.FirebirdClient
 		{
 			CheckDisposed();
 
-			var pool = default(Pool);
-			if (_pools.TryGetValue(connectionString.NormalizedConnectionString, out pool))
+			if (_pools.TryGetValue(connectionString.NormalizedConnectionString, out var pool))
 			{
 				pool.ClearPool();
 			}
@@ -260,7 +257,7 @@ namespace FirebirdSql.Data.FirebirdClient
 		void CheckDisposed()
 		{
 			if (Volatile2.Read(ref _disposed) == 1)
-				throw new ObjectDisposedException(typeof(FbConnectionPoolManager).Name);
+				throw new ObjectDisposedException(nameof(FbConnectionPoolManager));
 		}
 	}
 }

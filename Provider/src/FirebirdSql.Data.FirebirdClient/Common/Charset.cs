@@ -54,16 +54,14 @@ namespace FirebirdSql.Data.Common
 
 		public static Charset GetCharset(int charsetId)
 		{
-			var value = default(Charset);
-			if (charsetsById.TryGetValue(charsetId, out value))
+			if (charsetsById.TryGetValue(charsetId, out var value))
 				return value;
 			return null;
 		}
 
 		public static Charset GetCharset(string charsetName)
 		{
-			var value = default(Charset);
-			if (charsetsByName.TryGetValue(charsetName, out value))
+			if (charsetsByName.TryGetValue(charsetName, out var value))
 				return value;
 			return null;
 		}
@@ -159,14 +157,14 @@ namespace FirebirdSql.Data.Common
 		private string _name;
 		private string _systemName;
 		private Encoding _encoding;
-        private bool _isNone;
-        private bool _isOctets;
+		private bool _isNone;
+		private bool _isOctets;
 
-        #endregion
+		#endregion
 
-        #region Properties
+		#region Properties
 
-        public int Identifier
+		public int Identifier
 		{
 			get { return _id; }
 		}
@@ -201,17 +199,17 @@ namespace FirebirdSql.Data.Common
 			_name = name;
 			_bytesPerCharacter = bytesPerCharacter;
 			_systemName = systemName;
-            _isNone = false;
-            _isOctets = false;
-            switch (_systemName)
+			_isNone = false;
+			_isOctets = false;
+			switch (_systemName)
 			{
 				case None:
-					_encoding = Encoding.GetEncoding(0);
-                    _isNone = true;
-                    break;
+					_encoding = Encoding2.Default;
+					_isNone = true;
+					break;
 				case Octets:
 					_encoding = new BinaryEncoding();
-                    _isOctets = true;
+					_isOctets = true;
 					break;
 				default:
 					_encoding = Encoding.GetEncoding(_systemName);

@@ -27,8 +27,8 @@ using FirebirdSql.Data.Common;
 
 namespace FirebirdSql.Data.FirebirdClient
 {
-#if !NETCORE10
 	[Serializable]
+#if !NETSTANDARD1_6
 	[ListBindable(false)]
 #endif
 	public sealed class FbErrorCollection : ICollection<FbError>

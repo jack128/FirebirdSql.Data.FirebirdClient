@@ -27,15 +27,13 @@ using System.Text;
 using System.Reflection;
 using System.Resources;
 using System.Linq;
-#if !NETCORE10
+#if !NETSTANDARD1_6
 using System.Runtime.Serialization;
 #endif
 
 namespace FirebirdSql.Data.Common
 {
-#if !NETCORE10
 	[Serializable]
-#endif
 	internal sealed class IscException : Exception
 	{
 		private string _message;
@@ -120,7 +118,7 @@ namespace FirebirdSql.Data.Common
 			return result;
 		}
 
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		private IscException(SerializationInfo info, StreamingContext context)
 				: base(info, context)
 		{
@@ -136,7 +134,7 @@ namespace FirebirdSql.Data.Common
 			BuildExceptionMessage();
 		}
 
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		public override void GetObjectData(SerializationInfo info, StreamingContext context)
 		{
 			base.GetObjectData(info, context);
@@ -233,8 +231,7 @@ namespace FirebirdSql.Data.Common
 
 		private static string GetValueOrDefault(IDictionary<int, string> dictionary, int key, Func<int, string> defaultValueFactory)
 		{
-			string result;
-			if (!dictionary.TryGetValue(key, out result))
+			if (!dictionary.TryGetValue(key, out var result))
 			{
 				result = defaultValueFactory(key);
 			}

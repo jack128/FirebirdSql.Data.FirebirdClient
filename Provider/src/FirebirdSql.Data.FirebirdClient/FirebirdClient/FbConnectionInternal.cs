@@ -26,12 +26,11 @@ using System.Text;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
-#if NETCORE10
+#if NETSTANDARD1_6 || NETSTANDARD2_0
 using Microsoft.Extensions.PlatformAbstractions;
 #endif
-
 using FirebirdSql.Data.Common;
-#if !NETCORE10
+#if !NETSTANDARD1_6
 using FirebirdSql.Data.Schema;
 #endif
 
@@ -47,7 +46,7 @@ namespace FirebirdSql.Data.FirebirdClient
 		private FbConnectionString _options;
 		private FbConnection _owningConnection;
 		private bool _disposed;
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		private FbEnlistmentNotification _enlistmentNotification;
 #endif
 
@@ -82,7 +81,7 @@ namespace FirebirdSql.Data.FirebirdClient
 		{
 			get
 			{
-#if NETCORE10
+#if NETSTANDARD1_6
 				return false;
 #else
 				return _enlistmentNotification != null && !_enlistmentNotification.IsCompleted;
@@ -134,7 +133,7 @@ namespace FirebirdSql.Data.FirebirdClient
 		public void DropDatabase()
 		{
 			IDatabase db = ClientFactory.CreateDatabase(_options);
-			db.Attach(BuildDpb(db, _options), _options.DataSource, _options.Port, _options.Database);
+			db.Attach(BuildDpb(db, _options), _options.DataSource, _options.Port, _options.Database, _options.CryptKey);
 			db.DropDatabase();
 		}
 
@@ -160,11 +159,11 @@ namespace FirebirdSql.Data.FirebirdClient
 
 				if (string.IsNullOrEmpty(_options.UserID) && string.IsNullOrEmpty(_options.Password))
 				{
-					_db.AttachWithTrustedAuth(dpb, _options.DataSource, _options.Port, _options.Database);
+					_db.AttachWithTrustedAuth(dpb, _options.DataSource, _options.Port, _options.Database, _options.CryptKey);
 				}
 				else
 				{
-					_db.Attach(dpb, _options.DataSource, _options.Port, _options.Database);
+					_db.Attach(dpb, _options.DataSource, _options.Port, _options.Database, _options.CryptKey);
 				}
 			}
 			catch (IscException ex)
@@ -198,10 +197,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		public FbTransaction BeginTransaction(IsolationLevel level, string transactionName)
 		{
-			if (HasActiveTransaction)
-			{
-				throw new InvalidOperationException("A transaction is currently active. Parallel transactions are not supported.");
-			}
+			EnsureActiveTransaction();
 
 			try
 			{
@@ -215,6 +211,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			}
 			catch (IscException ex)
 			{
+				DisposeTransaction();
 				throw new FbException(ex.Message, ex);
 			}
 
@@ -223,16 +220,11 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		public FbTransaction BeginTransaction(FbTransactionOptions options, string transactionName)
 		{
-			if (HasActiveTransaction)
-			{
-				throw new InvalidOperationException("A transaction is currently active. Parallel transactions are not supported.");
-			}
+			EnsureActiveTransaction();
 
 			try
 			{
-				_activeTransaction = new FbTransaction(
-					_owningConnection, IsolationLevel.Unspecified);
-
+				_activeTransaction = new FbTransaction(_owningConnection, IsolationLevel.Unspecified);
 				_activeTransaction.BeginTransaction(options);
 
 				if (transactionName != null)
@@ -242,6 +234,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			}
 			catch (IscException ex)
 			{
+				DisposeTransaction();
 				throw new FbException(ex.Message, ex);
 			}
 
@@ -261,8 +254,7 @@ namespace FirebirdSql.Data.FirebirdClient
 		{
 			for (int i = 0; i < _preparedCommands.Count; i++)
 			{
-				FbCommand command;
-				if (!_preparedCommands[i].TryGetTarget(out command))
+				if (!_preparedCommands[i].TryGetTarget(out FbCommand command))
 					continue;
 
 				if (command.Transaction != null)
@@ -277,7 +269,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		#region Transaction Enlistement
 
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		public void EnlistTransaction(System.Transactions.Transaction transaction)
 		{
 			if (_owningConnection != null && _options.Enlist)
@@ -337,7 +329,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		#region Schema Methods
 
-#if !NETCORE10
+#if !NETSTANDARD1_6
 		public DataTable GetSchema(string collectionName, string[] restrictions)
 		{
 			return FbSchemaFactory.GetSchema(_owningConnection, collectionName, restrictions);
@@ -350,14 +342,12 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		public void AddPreparedCommand(FbCommand command)
 		{
-			int position = _preparedCommands.Count;
+			int position = -1;
 			for (int i = 0; i < _preparedCommands.Count; i++)
 			{
-				FbCommand current;
-				if (!_preparedCommands[i].TryGetTarget(out current))
+				if (!_preparedCommands[i].TryGetTarget(out FbCommand current))
 				{
 					position = i;
-					break;
 				}
 				else
 				{
@@ -367,7 +357,14 @@ namespace FirebirdSql.Data.FirebirdClient
 					}
 				}
 			}
-			_preparedCommands.Insert(position, new WeakReference(command));
+			if (position >= 0)
+			{
+				_preparedCommands[position].Target = command;
+			}
+			else
+			{
+				_preparedCommands.Add(new WeakReference(command));
+			}
 		}
 
 		public void RemovePreparedCommand(FbCommand command)
@@ -375,8 +372,7 @@ namespace FirebirdSql.Data.FirebirdClient
 			for (int i = _preparedCommands.Count - 1; i >= 0; i--)
 			{
 				var item = _preparedCommands[i];
-				FbCommand current;
-				if (item.TryGetTarget(out current) && current == command)
+				if (item.TryGetTarget<FbCommand>(out var current) && current == command)
 				{
 					_preparedCommands.RemoveAt(i);
 					return;
@@ -388,8 +384,7 @@ namespace FirebirdSql.Data.FirebirdClient
 		{
 			for (int i = 0; i < _preparedCommands.Count; i++)
 			{
-				FbCommand current;
-				if (!_preparedCommands[i].TryGetTarget(out current))
+				if (!_preparedCommands[i].TryGetTarget(out FbCommand current))
 					continue;
 
 				try
@@ -500,7 +495,7 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		private string GetHostingPath()
 		{
-#if NETCORE10
+#if NETSTANDARD1_6 || NETSTANDARD2_0
 			return PlatformServices.Default.Application.ApplicationBasePath;
 #else
 			Assembly assembly;
@@ -534,12 +529,18 @@ namespace FirebirdSql.Data.FirebirdClient
 
 		private int GetProcessId()
 		{
-#if !NETCORE10
+#if !NETSTANDARD1_6
 			Assembly assembly = Assembly.GetEntryAssembly();
 			if (!(assembly?.IsFullyTrusted) ?? false)
 				return -1;
 #endif
 			return Process.GetCurrentProcess().Id;
+		}
+
+		private void EnsureActiveTransaction()
+		{
+			if (HasActiveTransaction)
+				throw new InvalidOperationException("A transaction is currently active. Parallel transactions are not supported.");
 		}
 		#endregion
 

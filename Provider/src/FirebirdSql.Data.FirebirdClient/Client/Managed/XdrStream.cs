@@ -27,6 +27,8 @@ using System.Linq;
 using FirebirdSql.Data.Common;
 using System.Collections.Generic;
 using Ionic.Zlib;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace FirebirdSql.Data.Client.Managed
 {
@@ -218,6 +220,18 @@ namespace FirebirdSql.Data.Client.Managed
 
 			return _inputReader.Read(buffer, offset, count);
 		}
+#if NET40
+		public async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default(CancellationToken))
+#else
+		public override async Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+#endif
+		{
+			CheckDisposed();
+			EnsureReadable();
+			if (count == 0) return 0;
+
+			return await _inputReader.ReadAsync(buffer, offset, count).ConfigureAwait(false);
+		}
 
 		public override void WriteByte(byte value)
 		{
@@ -245,17 +259,26 @@ namespace FirebirdSql.Data.Client.Managed
 			return op;
 		}
 
+		/* loop	as long	as we are receiving	dummy packets, just
+		 * throwing	them away--note	that if	we are a server	we won't
+		 * be receiving	them, but it is	better to check	for	them at
+		 * this	level rather than try to catch them	in all places where
+		 * this	routine	is called
+		 */
 		public int ReadNextOperation()
 		{
 			do
 			{
-				/* loop	as long	as we are receiving	dummy packets, just
-				 * throwing	them away--note	that if	we are a server	we won't
-				 * be receiving	them, but it is	better to check	for	them at
-				 * this	level rather than try to catch them	in all places where
-				 * this	routine	is called
-				 */
 				_operation = ReadInt32();
+			} while (_operation == IscCodes.op_dummy);
+
+			return _operation;
+		}
+		public async Task<int> ReadNextOperationAsync()
+		{
+			do
+			{
+				_operation = await ReadInt32Async().ConfigureAwait(false);
 			} while (_operation == IscCodes.op_dummy);
 
 			return _operation;
@@ -276,6 +299,8 @@ namespace FirebirdSql.Data.Client.Managed
 		#region XDR Read Methods
 
 		public byte[] ReadBytes(int count) => _inputReader.ReadBytes(count);
+		public Task<byte[]> ReadBytesAsync(int count) => _inputReader.ReadBytesAsync(count);
+
 		public byte[] ReadOpaque(int length) => _inputReader.ReadOpaque(length);
 		public byte[] ReadBuffer() => _inputReader.ReadBuffer();
 
@@ -286,6 +311,7 @@ namespace FirebirdSql.Data.Client.Managed
 
 		public short ReadInt16() => _inputReader.ReadInt16();
 		public int ReadInt32() => _inputReader.ReadInt32();
+		public Task<int> ReadInt32Async() => _inputReader.ReadInt32Async();
 		public long ReadInt64() => _inputReader.ReadInt64();
 
 		public Guid ReadGuid(int length) => _inputReader.ReadGuid();
@@ -325,7 +351,6 @@ namespace FirebirdSql.Data.Client.Managed
 			Write(buffer, 0, length);
 			Write(Pad, 0, ((4 - length + 2) & 3));
 		}
-
 		public void WriteTyped(int type, byte[] buffer)
 		{
 			int length;
@@ -414,6 +439,13 @@ namespace FirebirdSql.Data.Client.Managed
 			return result;
 		}
 
+		private async Task<byte[]> InternalReadBufferAsync(int count, bool opaque = false)
+		{
+			var result = count > _innerBuffer.Length ? new byte[count] : _innerBuffer;
+			await InternalReadBufferAsync(result, 0, count, opaque);
+			return result;
+		}
+
 
 		private void InternalReadBuffer(byte[] buffer, int offset, int count, bool opaque = false)
 		{
@@ -436,13 +468,40 @@ namespace FirebirdSql.Data.Client.Managed
 				}
 			}
 		}
+		private async Task InternalReadBufferAsync(byte[] buffer, int offset, int count, bool opaque = false)
+		{
+			var needToRead = count;
+			while (needToRead > 0)
+			{
+				var readed = await ReadAsync(buffer, offset, needToRead).ConfigureAwait(false);
+				if (readed == 0)
+					throw new IOException();
+				needToRead -= readed;
+				offset += readed;
+			}
 
+			if (opaque)
+			{
+				var padLength = ((4 - count) & 3);
+				if (padLength > 0)
+				{
+					await ReadAsync(_pad, 0, padLength).ConfigureAwait(false);
+				}
+			}
+		}
 		public int Read(byte[] buffer, int offset, int count) => _stream.Read(buffer, offset, count);
+		public Task<int> ReadAsync(byte[] buffer, int offset, int count) => _stream.ReadAsync(buffer, offset, count);
 
 		public byte[] ReadBytes(int count)
 		{
 			var result = new byte[count];
 			InternalReadBuffer(result, 0, count);
+			return result;
+		}
+		public async Task<byte[]> ReadBytesAsync(int count)
+		{
+			var result = new byte[count];
+			await InternalReadBufferAsync(result, 0, count).ConfigureAwait(false);
 			return result;
 		}
 
@@ -461,6 +520,7 @@ namespace FirebirdSql.Data.Client.Managed
 		}
 
 		public int ReadInt32() => IPAddress.HostToNetworkOrder(BitConverter.ToInt32(InternalReadBuffer(4), 0));
+		public async Task<int> ReadInt32Async() => IPAddress.HostToNetworkOrder(BitConverter.ToInt32(await InternalReadBufferAsync(4).ConfigureAwait(false), 0));
 		public short ReadInt16() => Convert.ToInt16(ReadInt32());
 		public long ReadInt64() => IPAddress.HostToNetworkOrder(BitConverter.ToInt64(InternalReadBuffer(8), 0));
 		public double ReadDouble() => BitConverter.Int64BitsToDouble(ReadInt64());

@@ -120,10 +120,9 @@ namespace FirebirdSql.Data.Common
 #if NET40 || NET45
 			return new ArraySegment<byte>(stream.GetBuffer(), 0, (int)stream.Length);
 #else
-			ArraySegment<byte> result;
-			if (!(stream.TryGetBuffer(out buffer)))
+			if (!stream.TryGetBuffer(out var result))
 			{
-				result = new ArraySegment<byte>(stream.ToArray(), 0, (int)stream.Length);
+				result = new ArraySegment<byte>(stream.ToArray());
 			}
 			return result;
 #endif

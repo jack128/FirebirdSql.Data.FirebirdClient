@@ -20,9 +20,7 @@ using System;
 
 namespace FirebirdSql.Data.FirebirdClient
 {
-#if !NETCORE10
 	[Serializable]
-#endif
 	public sealed class FbError
 	{
 		#region Fields

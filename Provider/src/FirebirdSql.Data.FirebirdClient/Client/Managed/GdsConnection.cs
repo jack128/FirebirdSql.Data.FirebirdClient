@@ -24,6 +24,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using FirebirdSql.Data.Client.Managed.Version11;
+using FirebirdSql.Data.Client.Managed.Version13;
 using FirebirdSql.Data.Common;
 
 namespace FirebirdSql.Data.Client.Managed
@@ -55,11 +56,6 @@ namespace FirebirdSql.Data.Client.Managed
 		#endregion
 
 		#region Properties
-
-		public bool IsConnected
-		{
-			get { return _socket?.Connected ?? false; }
-		}
 
 		public int ProtocolVersion
 		{
@@ -119,7 +115,7 @@ namespace FirebirdSql.Data.Client.Managed
 				IPAddress = GetIPAddress(_dataSource, AddressFamily.InterNetwork);
 				var endPoint = new IPEndPoint(IPAddress, _portNumber);
 
-				_socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+				_socket = new Socket(IPAddress.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
 				_socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, _packetSize);
 				_socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, _packetSize);
@@ -265,7 +261,7 @@ namespace FirebirdSql.Data.Client.Managed
 				return ipaddress;
 			}
 
-#if NETCORE10
+#if NETSTANDARD1_6
 			IPAddress[] addresses = Dns.GetHostEntryAsync(dataSource).GetAwaiter().GetResult().AddressList;
 #else
 			IPAddress[] addresses = Dns.GetHostEntry(dataSource).AddressList;
@@ -287,6 +283,20 @@ namespace FirebirdSql.Data.Client.Managed
 		{
 			using (var result = new MemoryStream())
 			{
+				var userString = Environment.GetEnvironmentVariable("USERNAME") ?? Environment.GetEnvironmentVariable("USER") ?? string.Empty;
+				var user = Encoding.UTF8.GetBytes(userString);
+				result.WriteByte(IscCodes.CNCT_user);
+				result.WriteByte((byte)user.Length);
+				result.Write(user, 0, user.Length);
+
+				var host = Encoding.UTF8.GetBytes(Dns.GetHostName());
+				result.WriteByte(IscCodes.CNCT_host);
+				result.WriteByte((byte)host.Length);
+				result.Write(host, 0, host.Length);
+
+				result.WriteByte(IscCodes.CNCT_user_verification);
+				result.WriteByte(0);
+
 				if (!string.IsNullOrEmpty(_userID))
 				{
 					_srp = new SrpClient();
@@ -323,23 +333,9 @@ namespace FirebirdSql.Data.Client.Managed
 					WriteMultiPartHelper(result, IscCodes.CNCT_specific_data, specificData);
 				}
 
-				var userString = Environment.GetEnvironmentVariable("USERNAME") ?? Environment.GetEnvironmentVariable("USER") ?? string.Empty;
-				var user = Encoding.UTF8.GetBytes(userString);
-				result.WriteByte(IscCodes.CNCT_user);
-				result.WriteByte((byte)user.Length);
-				result.Write(user, 0, user.Length);
-
-				var host = Encoding.UTF8.GetBytes(Dns.GetHostName());
-				result.WriteByte(IscCodes.CNCT_host);
-				result.WriteByte((byte)host.Length);
-				result.Write(host, 0, host.Length);
-
 				result.WriteByte(IscCodes.CNCT_client_crypt);
 				result.WriteByte(4);
 				result.Write(new byte[] { 0, 0, 0, 0 }, 0, 4);
-
-				result.WriteByte(IscCodes.CNCT_user_verification);
-				result.WriteByte(0);
 
 				return result.ToArray();
 			}
@@ -373,6 +369,9 @@ namespace FirebirdSql.Data.Client.Managed
 
 				case IscCodes.op_trusted_auth:
 					return new AuthResponse(xdr.ReadBuffer());
+
+				case IscCodes.op_crypt_key_callback:
+					return new CryptKeyCallbackReponse(xdr.ReadBuffer());
 
 				default:
 					return null;
